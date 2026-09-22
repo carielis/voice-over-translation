@@ -1,0 +1,66 @@
+// Animate inner artwork only: overlay transforms belong to docking and dragging.
+@keyframes vot-studio-wave {
+  0%, 100% { transform: scaleY(0.45); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes vot-studio-reveal {
+  from { opacity: 0; translate: 0 5px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .vot-segmented-button[data-loading="true"]:not(.vot-segmented-button--hidden) {
+    .vot-studio-wave-bar {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: vot-studio-wave 960ms ease-in-out infinite;
+      &:nth-child(2n) { animation-delay: -320ms; }
+      &:nth-child(3n) { animation-delay: -640ms; }
+    }
+  }
+
+  .vot-menu:not([hidden]) .vot-menu-body-container,
+  .vot-dialog-container:not([hidden]) .vot-dialog-body-container,
+  .vot-voice-popover:not([hidden]) .vot-voice-popover__item {
+    animation: vot-studio-reveal var(--vot-duration-medium) var(--vot-easing-standard) both;
+  }
+
+  .vot-segment > svg,
+  .vot-segment-only-icon > svg,
+  .vot-icon-button > svg {
+    transition: scale var(--vot-duration-fast) var(--vot-easing-standard);
+  }
+
+  @media (hover: hover) {
+    .vot-segment:hover > svg,
+    .vot-segment-only-icon:hover > svg,
+    .vot-icon-button:not([disabled="true"]):hover > svg { scale: 1.08; }
+
+    .vot-voice-popover__item:hover .vot-eq-bar {
+      animation: vot-studio-wave 700ms ease-in-out 1;
+      &:nth-child(2n) { animation-delay: 70ms; }
+      &:nth-child(3n) { animation-delay: 140ms; }
+    }
+  }
+
+  .vot-segment:active > svg,
+  .vot-segment-only-icon:active > svg,
+  .vot-icon-button:not([disabled="true"]):active > svg { scale: 0.92; }
+}
+
+// Include overlay roots, dialog portals and pseudo-elements. This also covers
+// pre-existing control transitions without relying on a particular mount.
+@media (prefers-reduced-motion: reduce) {
+  vot-block,
+  vot-block *,
+  vot-block::before,
+  vot-block::after,
+  vot-block *::before,
+  vot-block *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
