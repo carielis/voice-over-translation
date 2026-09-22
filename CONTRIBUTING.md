@@ -5,6 +5,30 @@
 
 If possible, all new code **SHOULD BE** written with TypeScript. **AVOID** comits of files from `dist` folder.
 
+## Testing
+
+Use Node.js 22 and Bun 1.4.2, matching CI. Install dependencies from the committed
+`bun.lock`, then run the checks before submitting a change:
+
+```bash
+bun install --frozen-lockfile
+bun run test
+bun run check
+bun run lint
+```
+
+`test` runs the unit tests, `check` checks the build configuration and application
+types, and `lint` checks the source, build configuration, and scripts. CI requires
+all three checks to pass before building userscripts and browser extensions.
+Node.js builds also install dependencies with Bun to use the same lockfile.
+
+For changes affecting a build, also run the relevant command:
+
+```bash
+npm run build:gm
+npm run build:ext
+```
+
 ## localization
 
 All phrases **MUST BE** added to the `Phrase` and `Phrases` types in [localization.ts](./src/types/localization.ts).
