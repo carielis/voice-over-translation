@@ -467,11 +467,11 @@ export default class VoicePopover extends UIComponentWithEvents<{
 
     const popoverRect = this.container.getBoundingClientRect();
     let left = Math.max(
-      gap,
+      rootRect.left + gap,
       Math.min(result.left, rootRect.right - popoverRect.width - gap),
     );
     let top = Math.max(
-      gap,
+      rootRect.top + gap,
       Math.min(result.top, rootRect.bottom - popoverRect.height - gap),
     );
 

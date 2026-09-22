@@ -27,6 +27,8 @@ Animate interior elements: toolbar transforms belong to docking/dragging and
 popover positions are measured by the layout code. Keep hidden/inert semantics,
 keyboard focus indicators and subtitle geometry intact. Menus and language
 controls must fit the containing player, including narrow embedded players.
+Voice-card placement clamps viewport coordinates against the player's offset
+bounds before converting them to local coordinates.
 
 ## Searchable selects
 
