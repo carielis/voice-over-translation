@@ -1,4 +1,4 @@
-import { defineManifest } from "@crxjs/vite-plugin";
+import { defineManifest, type ManifestV3Export } from "@crxjs/vite-plugin";
 
 import headers from "../../../src/headers.json";
 import { getBuildConfig } from "../env";
@@ -38,12 +38,14 @@ const chromeOptions: ChromeManifestOptions = {
   versionName: extensionHeaders.version,
 };
 
+type ChromeManifest = Extract<ManifestV3Export, { manifest_version: number }>;
+
 const manifest = buildManifestChrome({
   headers: extensionHeaders,
   includeWorld: true,
   pathStrategy: sourcePathStrategy,
   chromeOptions,
-}) as Record<string, unknown>;
+});
 
 export default defineManifest(({ mode }) => {
   const BUILD_COFNIG = getBuildConfig(mode);
@@ -58,5 +60,5 @@ export default defineManifest(({ mode }) => {
   return {
     ...manifest,
     ...updateManifest,
-  } as Parameters<typeof defineManifest>[0];
+  } as ChromeManifest;
 });

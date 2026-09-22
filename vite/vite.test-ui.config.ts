@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 import { buildDefine } from "./lib/env";
 import { distDir, singleFileBuildOptions, testsDir } from "./lib/paths";
 import { formatSimpleUserscriptHeader } from "./lib/userscript/headers";
@@ -9,7 +9,7 @@ import { createBaseViteConfig } from "./lib/vite-base-config";
 const TEST_UI_ENTRY = path.resolve(testsDir, "ui.js");
 const TEST_UI_HEADERS_PATH = path.resolve(testsDir, "headers.json");
 
-export default defineConfig(async () => {
+export default defineConfig(async (): Promise<UserConfig> => {
   const baseConfig = createBaseViteConfig({ cacheName: "test-ui" });
   const testMeta = JSON.parse(
     await fs.readFile(TEST_UI_HEADERS_PATH, "utf8"),
