@@ -28,9 +28,29 @@ popover positions are measured by the layout code. Keep hidden/inert semantics,
 keyboard focus indicators and subtitle geometry intact. Menus and language
 controls must fit the containing player, including narrow embedded players.
 
+## Searchable selects
+
+[Select](./components/select.ts) opens an anchored list with a visible search
+field, including for short lists. Typing filters labels without changing the
+current selection. Arrow keys move through enabled results, Enter selects,
+Escape closes, and Tab continues to the next control. Multiple selection keeps
+the list open and requires at least one selected value.
+
+[SelectDropdown](./components/selectDropdown.ts) uses the native Popover API
+to escape menu clipping while keeping the list in its owner's shadow root.
+Without that API the list expands inside its control. Closing or removing the
+owner tears down observers and listeners. `beforeOpen` receives the dropdown;
+asynchronous content can use its `footerContainer`. Existing `dialogTitle` and
+`dialogParent` constructor options remain accepted.
+
+Search providers must return matching items. Only the latest result is applied;
+closing the list invalidates pending requests. A provider failure falls back to
+the base items. Selected labels are retained when remote results replace the
+visible list. The compact voice chooser also searches titles and descriptions.
+
 ## Verification
 
 Run `bun run check`, `bun run lint`, `bun test` and the userscript/extension
 builds. Visually check default, loading, success and error states; all five dock
-positions; language dialogs; keyboard focus; and narrow player layouts. Check
+positions; select search, keyboard selection and focus; and narrow player layouts. Check
 reduced motion with the operating system or browser accessibility preference.

@@ -22,6 +22,7 @@
 
   .vot-menu:not([hidden]) .vot-menu-body-container,
   .vot-dialog-container:not([hidden]) .vot-dialog-body-container,
+  .vot-select-dropdown:not([hidden]) .vot-select-dropdown-body,
   .vot-voice-popover:not([hidden]) .vot-voice-popover__item {
     animation: vot-studio-reveal var(--vot-duration-medium) var(--vot-easing-standard) both;
   }
