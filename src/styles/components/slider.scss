@@ -1,15 +1,48 @@
+// Vendor range pseudo-elements must have separate selector rules: an unknown
+// pseudo-element invalidates the entire selector list in Chromium and Firefox.
+@mixin vot-slider-track($native-progress: false) {
+  border: none !important;
+  border-radius: 999px !important;
+  @if not $native-progress {
+    width: 100% !important;
+  }
+  height: 4px !important;
+  background: var(--vot-slider-track) !important;
+}
+
+@mixin vot-slider-thumb {
+  appearance: none !important;
+  box-sizing: border-box !important;
+  border: 2px solid rgb(var(--vot-surface-rgb)) !important;
+  border-radius: 50% !important;
+  width: 12px !important;
+  height: 12px !important;
+  background: var(--vot-slider-fill) !important;
+  box-shadow: none !important;
+  transition: box-shadow var(--vot-duration-fast) var(--vot-easing-standard) !important;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none !important;
+  }
+}
+
+@mixin vot-slider-thumb-focus {
+  box-shadow: 0 0 0 3px rgba(var(--vot-primary-rgb), 0.35) !important;
+}
+
 .vot-slider {
   width: 100% !important;
   color: rgba(var(--vot-onsurface-rgb, 0, 0, 0), 0.87) !important;
   font-family: var(
     --vot-font-family,
-    "Roboto",
+    "Aptos",
+    "Segoe UI Variable",
     "Segoe UI",
     BlinkMacSystemFont,
     system-ui,
     -apple-system
   ) !important;
-  font-size: 16px !important;
+  font-size: 14px !important;
   line-height: 1.5 !important;
   text-align: start !important;
 
@@ -32,7 +65,7 @@
     // instead of forcing users to scan to the far right edge.
     display: inline-flex;
     align-items: baseline;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
     width: 100%;
   }
@@ -42,6 +75,12 @@
     font-variant-numeric: tabular-nums;
     // Reduce visual noise: values should be legible but not steal attention.
     font-weight: 500 !important;
+    color: rgb(var(--vot-primary-rgb));
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 2px 7px;
+    border-radius: var(--vot-radius-xs);
+    background: rgba(var(--vot-primary-rgb), 0.09);
   }
 
   .vot-slider-label-text {
@@ -49,6 +88,8 @@
   }
 
   & > input {
+    --vot-slider-fill: rgb(var(--vot-primary-rgb));
+    --vot-slider-track: rgba(var(--vot-primary-rgb), 0.2);
     order: 2;
 
     border: none !important;
@@ -69,45 +110,14 @@
       box-shadow: none !important;
     }
 
-    /* Track Fill */
-    &::before {
-      content: "" !important;
-      display: block !important;
-      position: absolute !important;
-      width: calc(100% * var(--vot-progress, 0)) !important;
-      height: 2px !important;
-      top: calc(50% - 1px) !important;
-      background: rgb(var(--vot-primary-rgb, 33, 150, 243)) !important;
-    }
-
     &:disabled {
+      --vot-slider-fill: rgb(var(--vot-onsurface-rgb));
+      --vot-slider-track: rgba(var(--vot-onsurface-rgb), 0.38);
       cursor: default !important;
       opacity: 0.38 !important;
 
       & + span {
         color: rgba(var(--vot-onsurface-rgb, 0, 0, 0), 0.38) !important;
-      }
-
-      &::-webkit-slider-runnable-track,
-      &::-moz-range-track {
-        background-color: rgba(
-          var(--vot-onsurface-rgb, 0, 0, 0),
-          0.38
-        ) !important;
-      }
-
-      &::-webkit-slider-thumb,
-      &::-moz-range-thumb {
-        background-color: rgb(var(--vot-onsurface-rgb, 0, 0, 0)) !important;
-        box-shadow: 0 0 0 1px rgb(var(--vot-surface-rgb, 255, 255, 255)) !important;
-        transform: scale(4, 4) !important;
-      }
-
-      &::-moz-range-progress {
-        background-color: rgba(
-          var(--vot-onsurface-rgb, 0, 0, 0),
-          0.87
-        ) !important;
       }
     }
 
@@ -118,68 +128,54 @@
       outline: none !important;
     }
 
-    /* Webkit / Moz | Track */
-    &::-webkit-slider-runnable-track,
-    &::-moz-range-track {
-      margin: 15px 0 !important;
-      border-radius: 1px !important;
-      width: 100% !important;
-      height: 2px !important;
-      background-color: rgba(
-        var(--vot-primary-rgb, 33, 150, 243),
-        0.24
+    &::-webkit-slider-runnable-track {
+      @include vot-slider-track;
+      background: linear-gradient(
+        to right,
+        var(--vot-slider-fill) 0%,
+        var(--vot-slider-fill) clamp(0%, calc(var(--vot-progress, 0) * 100%), 100%),
+        var(--vot-slider-track) clamp(0%, calc(var(--vot-progress, 0) * 100%), 100%),
+        var(--vot-slider-track) 100%
       ) !important;
     }
 
-    /* Webkit / Moz | Thumb */
-    &::-webkit-slider-thumb,
-    &::-moz-range-thumb {
-      appearance: none !important;
-      border: none !important;
-      border-radius: 50% !important;
-      width: 2px !important;
-      height: 2px !important;
-      background-color: rgb(var(--vot-primary-rgb, 33, 150, 243)) !important;
-      transform: scale(6, 6) !important;
-      box-shadow: none !important;
-      transition: box-shadow 0.2s !important;
+    &::-moz-range-track {
+      @include vot-slider-track;
     }
 
     &::-webkit-slider-thumb {
-      margin: 0 !important;
+      @include vot-slider-thumb;
+      // Center the 12px thumb over the 4px track.
+      margin-top: -4px !important;
       -webkit-appearance: none !important;
     }
 
-    /* Moz | Progress */
+    &::-moz-range-thumb {
+      @include vot-slider-thumb;
+    }
+
     &::-moz-range-progress {
-      border-radius: 1px !important;
-      height: 2px !important;
-      background-color: rgb(var(--vot-primary-rgb, 33, 150, 243)) !important;
+      @include vot-slider-track($native-progress: true);
+      background: var(--vot-slider-fill) !important;
     }
 
-    // Do not show focus halos for pointer focus.
-    &:focus:not(:focus-visible)::-webkit-slider-thumb,
-    &:focus:not(:focus-visible)::-moz-range-thumb {
-      box-shadow: none !important;
+    &:focus-visible::-webkit-slider-thumb {
+      @include vot-slider-thumb-focus;
     }
 
-    // Keyboard focus: show an explicit indicator on the thumb.
-    // The global `html.vot-keyboard-nav` class is toggled by JS only on Tab.
-    // We scope the styles to our own slider to avoid affecting host-page ranges.
+    &:focus-visible::-moz-range-thumb {
+      @include vot-slider-thumb-focus;
+    }
+
+    // Preserve keyboard focus for older browsers without :focus-visible.
     @at-root {
-      html.vot-keyboard-nav
-        .vot-slider
-        > input:focus-visible::-webkit-slider-thumb,
-      html.vot-keyboard-nav
-        .vot-slider
-        > input:focus-visible::-moz-range-thumb {
-        box-shadow: 0 0 0 2px rgba(var(--vot-primary-rgb, 33, 150, 243), 0.24) !important;
-      }
-
       @supports not selector(:focus-visible) {
-        html.vot-keyboard-nav .vot-slider > input:focus::-webkit-slider-thumb,
+        html.vot-keyboard-nav .vot-slider > input:focus::-webkit-slider-thumb {
+          @include vot-slider-thumb-focus;
+        }
+
         html.vot-keyboard-nav .vot-slider > input:focus::-moz-range-thumb {
-          box-shadow: 0 0 0 2px rgba(var(--vot-primary-rgb, 33, 150, 243), 0.24) !important;
+          @include vot-slider-thumb-focus;
         }
       }
     }
