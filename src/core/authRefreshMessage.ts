@@ -34,5 +34,7 @@ export function notifyAuthOpener(
     return;
   }
 
-  target.postMessage(createAuthRefreshMessage(), globalThis.location.origin);
+  // The opener is a video site, not the auth server. This notification contains
+  // no account data; receivers validate the auth origin before refreshing.
+  target.postMessage(createAuthRefreshMessage(), "*");
 }
