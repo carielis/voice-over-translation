@@ -1,6 +1,8 @@
+import { render } from "lit-html";
 import type { Position } from "../../types/components/votButton";
 import type { VOTMenuProps } from "../../types/components/votMenu";
 import UI from "../../ui";
+import { STUDIO_WAVE_ICON } from "../icons";
 import {
   createDomId,
   setInteractiveHiddenState,
@@ -69,6 +71,10 @@ export default class VOTMenu extends UIComponent {
       "vot-menu-title-container",
     ]);
     headerContainer.appendChild(titleContainer);
+    const emblem = UI.createEl("span", ["vot-menu-emblem"]);
+    emblem.setAttribute("aria-hidden", "true");
+    render(STUDIO_WAVE_ICON, emblem);
+    titleContainer.appendChild(emblem);
     const title = UI.createEl("vot-block", ["vot-menu-title"]);
     title.id = this.titleId;
     title.append(this._titleHtml);

@@ -45,16 +45,16 @@
   user-select: none;
   display: flex;
   align-items: center;
-  height: 36px;
-  max-width: 100vw;
-  background: rgb(var(--vot-surface-rgb, 255, 255, 255));
+  height: 40px;
+  max-width: min(calc(100% - 16px), calc(100vw - 16px));
+  background: var(--vot-panel-background, rgb(var(--vot-surface-rgb)));
   color: var(--vot-helper-theme);
   fill: var(--vot-helper-theme);
   border: 1px solid var(--vot-border-color) !important;
-  border-radius: var(--vot-radius-s) !important;
+  border-radius: var(--vot-radius-m) !important;
   box-shadow: var(--vot-shadow-1) !important;
   @include shared.vot-font-family;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.5;
   cursor: default;
   transition: opacity var(--vot-duration-slow) var(--vot-easing-standard);
@@ -101,8 +101,8 @@
 
   & .vot-separator {
     width: 1px;
-    height: 50%;
-    background: rgba(var(--vot-helper-theme-rgb), 0.1);
+    height: 40%;
+    background: var(--vot-border-color);
   }
 
   & .vot-segment {
@@ -135,7 +135,7 @@
     }
 
     @include button.vot-button-layers(rgb(var(--vot-helper-theme-rgb)));
-    @include button.vot-button-layer-hover(0.04);
+    @include button.vot-button-layer-hover(0.08);
     @include button.vot-button-layer-active(0.16);
 
     &::before,
@@ -152,21 +152,38 @@
 
     &-only-icon {
       @extend .vot-segment;
-      min-width: 36px;
+      flex-shrink: 0;
+      min-width: 38px;
       padding: 0 !important;
     }
 
     &-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
       margin-left: var(--vot-space-2) !important;
       white-space: nowrap;
       color: inherit;
-      font-weight: 400 !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.01em;
     }
   }
 
   & .vot-translate-button {
     gap: 0 !important;
+    min-width: 0;
+    flex: 1 1 auto;
+    background-color: rgb(var(--vot-primary-rgb));
+    color: rgb(var(--vot-onprimary-rgb));
+    fill: currentColor;
+    padding-inline-start: 12px !important;
     padding-inline-end: 4px !important;
+    @include button.vot-button-layers(rgb(var(--vot-onprimary-rgb)));
+
+    &:focus-visible,
+    .vot-dropdown-arrow:focus-visible {
+      outline-color: rgb(var(--vot-onprimary-rgb)) !important;
+    }
   }
 
   & .vot-dropdown-arrow {
@@ -184,7 +201,7 @@
     fill: inherit;
     opacity: 0.95;
     cursor: default;
-    border-radius: 999px;
+    border-radius: var(--vot-radius-xs);
     outline: none;
     -webkit-tap-highlight-color: transparent;
 
@@ -220,28 +237,36 @@
   }
 
   & .vot-subtitles-button[data-active="true"] {
-    color: rgb(var(--vot-primary-rgb, 33, 150, 243));
-    fill: rgb(var(--vot-primary-rgb, 33, 150, 243));
+    color: rgb(var(--vot-primary-rgb));
+    fill: currentColor;
+    background-color: rgba(var(--vot-primary-rgb), 0.12);
   }
 
   &[data-status="success"] .vot-dropdown-arrow {
-    color: rgb(var(--vot-primary-rgb, 33, 150, 243));
-    fill: rgb(var(--vot-primary-rgb, 33, 150, 243));
+    color: rgb(var(--vot-onprimary-rgb));
+    fill: currentColor;
   }
 
   &[data-status="error"] .vot-dropdown-arrow {
-    color: #f28b82;
-    fill: #f28b82;
+    color: #ffd4ce;
+    fill: currentColor;
   }
 
   &[data-status="success"] .vot-translate-button {
-    color: rgb(var(--vot-primary-rgb, 33, 150, 243));
-    fill: rgb(var(--vot-primary-rgb, 33, 150, 243));
+    background-color: rgb(var(--vot-primary-rgb));
+    color: rgb(var(--vot-onprimary-rgb));
+    fill: currentColor;
   }
 
   &[data-status="error"] .vot-translate-button {
-    color: #f28b82;
-    fill: #f28b82;
+    background-color: #63332e;
+    color: #ffd4ce;
+    fill: currentColor;
+
+    &:focus-visible,
+    .vot-dropdown-arrow:focus-visible {
+      outline-color: currentColor !important;
+    }
   }
 
   &[data-loading="true"] {
@@ -304,6 +329,7 @@
 
   & svg {
     width: 24px;
+    flex-shrink: 0;
     fill: inherit;
     stroke: inherit;
   }
