@@ -95,7 +95,6 @@ export class VideoLifecycleController {
   }
 
   private invalidateActiveSession(reason: string): void {
-    if (this.lifecycleGeneration === 0) return;
     this.lifecycleGeneration += 1;
     this.resetActions(`[VideoLifecycle] ${reason}`);
     debug.log(
@@ -218,10 +217,18 @@ export class VideoLifecycleController {
       return;
     }
 
+    // Metadata lookup is part of the lifecycle even before a session starts.
+    const lookupGeneration = this.lifecycleGeneration;
     let nextVideoData: VideoData | undefined;
     try {
       nextVideoData = await this.host.getVideoData();
     } catch (err) {
+      if (
+        this.isStale(lookupGeneration) ||
+        this.getCurrentSourceKey() !== sourceKey
+      ) {
+        return;
+      }
       debug.log(
         `[VideoLifecycle] getVideoData failed for source ${sourceKey}`,
         err,
@@ -233,9 +240,12 @@ export class VideoLifecycleController {
       return;
     }
 
-    if (this.getCurrentSourceKey() !== sourceKey) {
+    if (
+      this.isStale(lookupGeneration) ||
+      this.getCurrentSourceKey() !== sourceKey
+    ) {
       debug.log(
-        "[VideoLifecycle] discarded stale getVideoData result after source change",
+        "[VideoLifecycle] discarded stale getVideoData result",
         { sourceKey },
       );
       return;
