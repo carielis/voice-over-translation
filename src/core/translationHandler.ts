@@ -7,6 +7,7 @@ import {
 import type { RequestLang, ResponseLang } from "@vot.js/shared/types/data";
 import { AudioDownloader } from "../audioDownloader";
 import { STREAM_TIMEOUT_MS } from "../audioDownloader/strategies/webAudioBridge";
+import { normalizeAudioLanguageTag } from "../audioDownloader/utils";
 import { localizationProvider } from "../localization/localizationProvider";
 import type {
   DownloadedAudioData,
@@ -127,15 +128,16 @@ export class VOTTranslationHandler {
   // In normal operation we should upload audio through the MSE proxy path.
   private readonly requestedFailAudio = new Set<string>();
 
-  // Source preparation is keyed to a video and outlives a failed upload run so
-  // a same-video retry can replay the completed cache. Upload runs share the
-  // preparation signal; a different video aborts it. Handlers and finish
+  // Source preparation is keyed to a video and source language and outlives a
+  // failed upload run so a matching retry can replay the completed cache.
+  // A different source aborts the shared preparation signal. Handlers and finish
   // callbacks check their run so stale events can't mutate the active run.
   private audioRunSeq = 0;
   private audioRunController: AbortController | null = null;
   private readonly audioRunExternalUnlinks = new Map<AbortSignal, () => void>();
   private audioRunTranslationId: string | null = null;
   private audioRunVideoId: string | null = null;
+  private audioRunSourceLanguage: string | null = null;
 
   private linkAudioRunAbort(
     externalSignal: AbortSignal,
@@ -158,14 +160,24 @@ export class VOTTranslationHandler {
     externalSignal: AbortSignal,
     translationId: string,
     videoId: string,
+    sourceLanguage?: string,
   ): { signal: AbortSignal; runId: number } {
     this.audioRunSeq += 1;
     const runId = this.audioRunSeq;
+    const normalizedLanguage = normalizeAudioLanguageTag(sourceLanguage);
+    if (
+      this.uploadResumeState &&
+      (this.uploadResumeState.videoId !== videoId ||
+        this.uploadResumeState.sourceLanguage !== normalizedLanguage)
+    ) {
+      this.uploadResumeState = null;
+    }
 
     const existing = this.audioRunController;
     if (
       existing &&
       this.audioRunVideoId === videoId &&
+      this.audioRunSourceLanguage === normalizedLanguage &&
       !existing.signal.aborted
     ) {
       this.linkAudioRunAbort(externalSignal, existing);
@@ -180,6 +192,7 @@ export class VOTTranslationHandler {
     const controller = new AbortController();
     this.audioRunController = controller;
     this.audioRunVideoId = videoId;
+    this.audioRunSourceLanguage = normalizedLanguage;
     this.audioRunTranslationId = translationId;
     this.linkAudioRunAbort(externalSignal, controller);
     return { signal: controller.signal, runId };
@@ -193,6 +206,7 @@ export class VOTTranslationHandler {
     this.audioRunController = null;
     this.audioRunTranslationId = null;
     this.audioRunVideoId = null;
+    this.audioRunSourceLanguage = null;
   }
 
   private finishAudioRun(runId: number): void {
@@ -205,6 +219,7 @@ export class VOTTranslationHandler {
   // normal server-side path and do not replay YouTube audio.
   private uploadResumeState: {
     videoId: string;
+    sourceLanguage: string;
     fileId: string;
     lastSuccessfulChunkId: number;
     failed: boolean;
@@ -293,11 +308,13 @@ export class VOTTranslationHandler {
     const signal = this.audioRunController?.signal ?? NEVER_ABORTED_SIGNAL;
 
     const { audioData, fileId, videoId, amount, version, index } = data;
+    const sourceLanguage = this.audioRunSourceLanguage ?? "";
     const videoUrl = this.getCanonicalUrl(videoId);
     const resume = this.uploadResumeState;
     if (
       resume?.failed &&
       resume.videoId === videoId &&
+      resume.sourceLanguage === sourceLanguage &&
       resume.fileId === fileId &&
       index <= resume.lastSuccessfulChunkId
     ) {
@@ -329,13 +346,16 @@ export class VOTTranslationHandler {
           ),
         signal,
       );
+      if (runId !== this.audioRunSeq) return;
       this.uploadResumeState = {
         videoId,
+        sourceLanguage,
         fileId,
         lastSuccessfulChunkId: index,
         failed: false,
       };
     } catch (error) {
+      if (runId !== this.audioRunSeq) return;
       if (isAbortError(error) && signal.aborted) {
         return;
       }
@@ -349,11 +369,14 @@ export class VOTTranslationHandler {
       });
       this.uploadResumeState = {
         videoId,
+        sourceLanguage,
         fileId,
         lastSuccessfulChunkId:
-          this.uploadResumeState?.videoId === videoId
+          this.uploadResumeState?.videoId === videoId &&
+          this.uploadResumeState.sourceLanguage === sourceLanguage &&
+          this.uploadResumeState.fileId === fileId
             ? this.uploadResumeState.lastSuccessfulChunkId
-            : index - 1,
+            : -1,
         failed: true,
       };
       this.finishDownloadFailure(
@@ -684,6 +707,7 @@ export class VOTTranslationHandler {
           signal,
           res.translationId,
           videoData.videoId,
+          requestLang,
         );
 
         debug.log("[Translation] waiting for audio download completion", {

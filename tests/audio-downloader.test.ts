@@ -613,3 +613,89 @@ test("completed audio cache keeps only the last video", async () => {
     restore();
   }
 });
+
+test("completed audio cache distinguishes source languages and normalizes tags", async () => {
+  const calls: (string | undefined)[] = [];
+  const chunks: number[] = [];
+  const restore = patchStrategies(async ({ sourceLanguage }) => {
+    calls.push(sourceLanguage);
+    const byte = calls.length;
+    return {
+      fileId: `file-${byte}`,
+      mediaPartsLength: null,
+      getMediaBuffers: async function* () {
+        yield { buffer: new Uint8Array([byte]), isLastChunk: true };
+      },
+    };
+  }, abrSucceeds());
+  try {
+    const downloader = new AudioDownloader(WEB_ABR_STRATEGY);
+    downloader.addEventListener("downloadedPartialAudio", (_id, data) => {
+      chunks.push(data.audioData[0]);
+    });
+    const signal = new AbortController().signal;
+
+    await downloader.runAudioDownload(
+      "cache-language",
+      "en-1",
+      signal,
+      "en-US",
+    );
+    await downloader.runAudioDownload(
+      "cache-language",
+      "en-2",
+      signal,
+      " EN_us ",
+    );
+    await downloader.runAudioDownload("cache-language", "es", signal, "es");
+    await downloader.runAudioDownload("cache-language", "auto", signal);
+
+    expect(calls).toEqual(["en-US", "es", undefined]);
+    expect(chunks).toEqual([1, 1, 2, 3]);
+  } finally {
+    restore();
+  }
+});
+
+test("a queued language change downloads its own source after the previous run", async () => {
+  const entered = deferred<void>();
+  const release = deferred<void>();
+  const calls: (string | undefined)[] = [];
+  const restore = patchStrategies(async ({ sourceLanguage }) => {
+    calls.push(sourceLanguage);
+    return {
+      fileId: `file-${sourceLanguage}`,
+      mediaPartsLength: null,
+      getMediaBuffers: async function* () {
+        if (sourceLanguage === "en") {
+          entered.resolve();
+          await release.promise;
+        }
+        yield { buffer: bytes(10), isLastChunk: true };
+      },
+    };
+  }, abrSucceeds());
+  try {
+    const downloader = new AudioDownloader(WEB_ABR_STRATEGY);
+    const signal = new AbortController().signal;
+    const first = downloader.runAudioDownload(
+      "queued-language",
+      "en",
+      signal,
+      "en",
+    );
+    await entered.promise;
+    const second = downloader.runAudioDownload(
+      "queued-language",
+      "es",
+      signal,
+      "es",
+    );
+    release.resolve();
+    await Promise.all([first, second]);
+    expect(calls).toEqual(["en", "es"]);
+  } finally {
+    release.resolve();
+    restore();
+  }
+});

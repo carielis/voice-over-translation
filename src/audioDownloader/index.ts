@@ -15,6 +15,7 @@ import {
   WEB_MSE_PROXY_STRATEGY,
 } from "./strategies";
 import type { AudioChunk } from "./strategies/audioChunks";
+import { normalizeAudioLanguageTag } from "./utils";
 
 async function handleCommonAudioDownloadRequest({
   audioDownloader,
@@ -165,15 +166,19 @@ async function acquireAudioDownloadSlot(
 
 export class AudioDownloader {
   // Only the most recent completed download is kept so a failed upload can
-  // resume the same video without re-downloading. Completing a different
-  // video replaces it; this is a single-entry cache, not an LRU/TTL.
+  // resume the same video and source language without re-downloading.
+  // Completing a different source replaces it; this is a single-entry cache.
   private completedAudioCache: {
     videoId: string;
+    sourceLanguage: string;
     fileId: string;
     chunks: Uint8Array[];
     version: 1;
   } | null = null;
-  private readonly collectingChunks = new Map<string, Uint8Array[]>();
+  private readonly collectingChunks = new Map<
+    string,
+    { sourceLanguage: string; chunks: Uint8Array[] }
+  >();
 
   onDownloadedAudio = new EventImpl<[string, DownloadedAudioData]>();
   onDownloadedPartialAudio = new EventImpl<
@@ -186,8 +191,9 @@ export class AudioDownloader {
   constructor(strategy: AvailableAudioDownloadType = WEB_ABR_STRATEGY) {
     this.strategy = strategy;
     this.onDownloadedPartialAudio.addListener((_translationId, data) => {
-      const chunks = this.collectingChunks.get(data.videoId);
-      if (!chunks) return;
+      const collecting = this.collectingChunks.get(data.videoId);
+      if (!collecting) return;
+      const { chunks, sourceLanguage } = collecting;
       chunks[data.index] = data.audioData.slice();
       if (
         data.amount !== undefined &&
@@ -196,6 +202,7 @@ export class AudioDownloader {
       ) {
         this.completedAudioCache = {
           videoId: data.videoId,
+          sourceLanguage,
           fileId: data.fileId,
           chunks: chunks.slice(0, data.amount),
           version: data.version,
@@ -223,9 +230,15 @@ export class AudioDownloader {
     videoId: string,
     translationId: string,
     signal: AbortSignal,
+    sourceLanguage: string,
   ): Promise<boolean> {
     const cached = this.completedAudioCache;
-    if (cached?.videoId !== videoId) return false;
+    if (
+      cached?.videoId !== videoId ||
+      cached.sourceLanguage !== sourceLanguage
+    ) {
+      return false;
+    }
     debug.log("[VOT][AudioDownload] replaying cached prepared audio", {
       videoId,
       chunks: cached.chunks.length,
@@ -250,10 +263,7 @@ export class AudioDownloader {
     signal: AbortSignal,
     sourceLanguage?: string,
   ) {
-    if (await this.replayCachedAudio(videoId, translationId, signal)) {
-      return;
-    }
-
+    const normalizedLanguage = normalizeAudioLanguageTag(sourceLanguage);
     let release: (() => void) | undefined;
     try {
       release = await acquireAudioDownloadSlot(videoId, signal);
@@ -271,16 +281,25 @@ export class AudioDownloader {
       return;
     }
 
-    let collecting: Uint8Array[] | undefined;
+    let collecting:
+      | { sourceLanguage: string; chunks: Uint8Array[] }
+      | undefined;
     try {
       // A predecessor may have finished the same video while this run waited.
-      if (await this.replayCachedAudio(videoId, translationId, signal)) {
+      if (
+        await this.replayCachedAudio(
+          videoId,
+          translationId,
+          signal,
+          normalizedLanguage,
+        )
+      ) {
         return;
       }
       // Buffer chunks in a run-local array so an abort/failure can drop them.
       // The identity guard keeps a queued same-video run from losing its own
       // collection when an overlapping predecessor cleans up.
-      collecting = [];
+      collecting = { sourceLanguage: normalizedLanguage, chunks: [] };
       this.collectingChunks.set(videoId, collecting);
       const attempts: AvailableAudioDownloadType[] =
         this.strategy === WEB_ABR_STRATEGY

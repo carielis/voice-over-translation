@@ -498,6 +498,207 @@ describe("fatal audio upload failure keeps preparing source", () => {
     expect(run.signal.aborted).toBe(false);
   });
 
+  for (const retryLanguage of ["en", "es"]) {
+    test(`failed upload retry in ${retryLanguage} uses the matching source and chunk progress`, async () => {
+      const handlerCtor = VOTTranslationHandler as unknown as {
+        AUDIO_UPLOAD_RETRY_DELAY_MS: number;
+      };
+      const prevDelay = handlerCtor.AUDIO_UPLOAD_RETRY_DELAY_MS;
+      handlerCtor.AUDIO_UPLOAD_RETRY_DELAY_MS = 0;
+      const table = strategies as Record<
+        string,
+        (typeof strategies)[keyof typeof strategies]
+      >;
+      const prevAbr = table[WEB_ABR_STRATEGY];
+      const calls: (string | undefined)[] = [];
+      const uploads: {
+        translationId: string;
+        chunkId: number;
+        byte: number;
+      }[] = [];
+      const prepared = deferred<void>();
+      let translateCalls = 0;
+
+      table[WEB_ABR_STRATEGY] = async ({ sourceLanguage }) => {
+        calls.push(sourceLanguage);
+        return {
+          // Track changes need to be detected even if the provider reuses fileId.
+          fileId: "shared-file-id",
+          mediaPartsLength: null,
+          getMediaBuffers: async function* () {
+            try {
+              for (let index = 0; index < 3; index++) {
+                yield {
+                  buffer: new Uint8Array([sourceLanguage === "es" ? 2 : 1]),
+                  isLastChunk: index === 2,
+                };
+              }
+            } finally {
+              prepared.resolve();
+            }
+          },
+        };
+      };
+      const videoHandler: any = {
+        data: { useAudioDownload: true, useLivelyVoice: false },
+        site: { host: "youtube" },
+        votClient: {
+          translateVideo: async () => {
+            translateCalls++;
+            return {
+              status:
+                translateCalls > 2
+                  ? VideoTranslationStatus.TRANSLATED
+                  : VideoTranslationStatus.AUDIO_REQUESTED,
+              translated: translateCalls > 2,
+              remainingTime: 0,
+              translationId: translateCalls === 1 ? "tr-first" : "tr-retry",
+            };
+          },
+          provider: {
+            requestVtransAudio: async (
+              _url: string,
+              translationId: string,
+              data: { chunkId: number; audioFile: Uint8Array },
+            ) => {
+              uploads.push({
+                translationId,
+                chunkId: data.chunkId,
+                byte: data.audioFile[0],
+              });
+              if (translationId === "tr-first" && data.chunkId === 1) {
+                throw new Error("PUT failed");
+              }
+            },
+          },
+        },
+        getRequestLangForTranslation: (lang: string) => lang,
+        isLivelyVoiceAllowed: () => false,
+        isYouTubeHosts: () => true,
+        updateTranslationErrorMsg: async () => undefined,
+        hadAsyncWait: false,
+        notifier: { translationFailed: () => undefined },
+        actionsAbortController: { signal: { aborted: false } },
+      };
+      try {
+        const handler = new VOTTranslationHandler(videoHandler);
+        const video = {
+          videoId: `retry-language-${retryLanguage}`,
+          duration: 10,
+        } as never;
+        const signal = new AbortController().signal;
+        expect(
+          await handler.translateVideoImpl(
+            video,
+            "en",
+            "ru",
+            null,
+            false,
+            signal,
+          ),
+        ).toBeNull();
+        await prepared.promise;
+        await tick();
+        await handler.translateVideoImpl(
+          video,
+          retryLanguage as never,
+          "ru",
+          null,
+          false,
+          signal,
+        );
+
+        const retryUploads = uploads.filter(
+          ({ translationId }) => translationId === "tr-retry",
+        );
+        expect(calls).toEqual(retryLanguage === "en" ? ["en"] : ["en", "es"]);
+        expect(retryUploads.map(({ chunkId }) => chunkId)).toEqual(
+          retryLanguage === "en" ? [1, 2] : [0, 1, 2],
+        );
+        expect(
+          retryUploads.every(
+            ({ byte }) => byte === (retryLanguage === "es" ? 2 : 1),
+          ),
+        ).toBe(true);
+      } finally {
+        handlerCtor.AUDIO_UPLOAD_RETRY_DELAY_MS = prevDelay;
+        table[WEB_ABR_STRATEGY] = prevAbr;
+      }
+    });
+  }
+
+  test("changing source language aborts the previous preparation", () => {
+    const handler = new VOTTranslationHandler({
+      updateTranslationErrorMsg: async () => undefined,
+    } as never) as any;
+    const external = new AbortController().signal;
+    const first = handler.startAudioRun(external, "tr-en", "video", "en-US");
+    const same = handler.startAudioRun(external, "tr-en-2", "video", " EN_us ");
+    expect(same.signal).toBe(first.signal);
+    const changed = handler.startAudioRun(external, "tr-es", "video", "es");
+    expect(first.signal.aborted).toBe(true);
+    expect(changed.signal.aborted).toBe(false);
+    handler.cleanupAudioRun();
+  });
+
+  test("a failed first chunk of a new file cannot inherit another file's progress", async () => {
+    const handlerCtor = VOTTranslationHandler as unknown as {
+      AUDIO_UPLOAD_RETRY_DELAY_MS: number;
+    };
+    const prevDelay = handlerCtor.AUDIO_UPLOAD_RETRY_DELAY_MS;
+    handlerCtor.AUDIO_UPLOAD_RETRY_DELAY_MS = 0;
+    let failing = true;
+    const uploads: number[] = [];
+    const handler = new VOTTranslationHandler({
+      site: { host: "youtube" },
+      updateTranslationErrorMsg: async () => undefined,
+      votClient: {
+        provider: {
+          requestVtransAudio: async (
+            _url: string,
+            _id: string,
+            data: { chunkId: number },
+          ) => {
+            uploads.push(data.chunkId);
+            if (failing) throw new Error("PUT failed");
+          },
+        },
+      },
+    } as never) as any;
+    try {
+      const signal = new AbortController().signal;
+      handler.startAudioRun(signal, "new-file", "video", "en");
+      handler.uploadResumeState = {
+        videoId: "video",
+        sourceLanguage: "en",
+        fileId: "old-file",
+        lastSuccessfulChunkId: 4,
+        failed: true,
+      };
+      handler.downloading = true;
+      const chunk = {
+        videoId: "video",
+        fileId: "new-file",
+        audioData: new Uint8Array([1]),
+        version: 1,
+        index: 0,
+        amount: 2,
+      };
+      await handler.onDownloadedPartialAudio("new-file", chunk);
+      expect(uploads).toHaveLength(6);
+
+      failing = false;
+      handler.startAudioRun(signal, "retry", "video", "en");
+      handler.downloading = true;
+      await handler.onDownloadedPartialAudio("retry", chunk);
+      expect(uploads).toHaveLength(7);
+      expect(uploads.at(-1)).toBe(0);
+    } finally {
+      handler.cleanupAudioRun();
+      handlerCtor.AUDIO_UPLOAD_RETRY_DELAY_MS = prevDelay;
+    }
+  });
+
   test("reuse with an already-aborted external signal aborts preparation", () => {
     const videoHandler: any = {
       data: {},
