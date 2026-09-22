@@ -608,7 +608,7 @@ export class SubtitlesWidget {
       this.onVisualViewportChangeBound,
       opts,
     );
-    globalThis.addEventListener("pointerdown", this.onGlobalPointerDown);
+    globalThis.addEventListener("pointerdown", this.onGlobalPointerDown, opts);
   }
   private getUpdateMinIntervalMs(): number {
     return this.highlightWords
