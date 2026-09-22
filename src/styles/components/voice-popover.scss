@@ -37,9 +37,9 @@
 
   --vot-voice-active-standard-fg: rgb(var(--vot-primary-rgb, 139, 180, 245));
 
-  --vot-voice-active-live-bg: rgba(var(--vot-live-rgb, 235, 199, 148), 0.12);
+  --vot-voice-active-live-bg: var(--vot-voice-active-standard-bg);
 
-  --vot-voice-active-live-fg: rgb(var(--vot-live-rgb, 235, 199, 148));
+  --vot-voice-active-live-fg: var(--vot-voice-active-standard-fg);
 
   position: absolute;
   top: 0;
@@ -48,18 +48,18 @@
   z-index: 2147483647;
   display: block;
 
-  background: var(--vot-panel-background, var(--vot-helper-surface));
+  background: var(--vot-helper-surface);
 
-  border: 1px solid var(--vot-border-color) !important;
+  border: 1px solid var(--vot-border-color-hover) !important;
 
-  border-radius: var(--vot-radius-l) !important;
+  border-radius: 12px !important;
 
   box-shadow: var(--vot-shadow-2) !important;
 
   overflow: hidden;
 
   padding: 5px !important;
-  min-width: min(230px, var(--vot-voice-popover-max-width, 310px));
+  min-width: min(200px, var(--vot-voice-popover-max-width, 310px));
   max-width: var(--vot-voice-popover-max-width, 310px);
   max-height: var(--vot-voice-popover-max-height, calc(100vh - 16px));
   width: max-content;
@@ -72,6 +72,8 @@
   transform-origin: top left;
 
   @include shared.vot-font-family;
+  font-size: 14px;
+  line-height: 1.4;
   text-align: left !important;
 
   &,
@@ -131,6 +133,12 @@
     pointer-events: none;
   }
 
+  &__options {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   &__item {
     position: relative;
 
@@ -138,12 +146,11 @@
 
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 
-    padding: 14px 36px 14px 12px !important;
-    min-height: 66px;
-    border: 1px solid transparent;
-    border-radius: var(--vot-radius-m);
+    padding: 8px 32px 8px 10px !important;
+    min-height: 38px;
+    border-radius: 7px;
 
     cursor: pointer;
 
@@ -163,20 +170,9 @@
 
       pointer-events: none;
 
-      background: linear-gradient(
-        180deg,
-        rgba(var(--vot-helper-onsurface-rgb), 0.045),
-        rgba(var(--vot-helper-onsurface-rgb), 0.06)
-      );
+      background: rgba(var(--vot-helper-onsurface-rgb), 0.075);
 
       transition: none;
-    }
-
-    &:hover,
-    &:focus-visible {
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.03),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.04);
     }
 
     &:hover::before,
@@ -197,33 +193,26 @@
       right: 14px;
       top: 50%;
 
-      width: 18px;
-      height: 18px;
+      width: 6px;
+      height: 10px;
 
       opacity: 0;
 
-      transform: translateY(-50%) scale(0.88);
+      transform: translateY(-65%) rotate(45deg);
 
       transition: none;
 
-      background-color: currentColor;
-
-      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E")
-        center / contain no-repeat;
-
-      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E")
-        center / contain no-repeat;
+      border: solid currentColor;
+      border-width: 0 1.5px 1.5px 0;
     }
 
     &--active {
       font-weight: 500 !important;
-      border-color: currentColor;
-      border-color: color-mix(in srgb, currentColor 24%, transparent);
 
       &::after {
         opacity: 1;
 
-        transform: translateY(-50%) scale(1);
+        transform: translateY(-65%) rotate(45deg);
       }
     }
   }
@@ -250,15 +239,17 @@
     .vot-voice-popover__item-title {
       color: inherit;
     }
+
+    .vot-voice-icon--live .vot-eq-bar {
+      fill: currentColor;
+    }
   }
 
   &__item-icon {
     flex-shrink: 0;
 
-    width: 28px;
-    height: 32px;
-    border-radius: var(--vot-radius-xs);
-    background: rgba(var(--vot-helper-onsurface-rgb), 0.04);
+    width: 20px;
+    height: 22px;
 
     display: flex;
     align-items: center;
@@ -282,9 +273,9 @@
   }
 
   &__item-title {
-    font-size: 15px;
+    font-size: 14px;
 
-    font-weight: 600 !important;
+    font-weight: 500 !important;
 
     line-height: 1.3;
 
@@ -297,21 +288,24 @@
   }
 
   &__item-subtitle {
-    font-size: 12px;
-
-    line-height: 1.4;
-
-    color: var(--vot-helper-onsurface-secondary);
-
-    white-space: normal;
+    // Keep the description available to assistive technology without turning
+    // each option into a large card.
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   &__divider {
-    height: 1px;
+    height: 2px;
 
     background: transparent;
 
-    margin: 2px 0 !important;
+    margin: 0 !important;
   }
 }
 

@@ -24,6 +24,9 @@ export default class VoicePopover extends UIComponentWithEvents<{
 }> {
   private readonly id = createDomId("vot-voice-popover");
   private readonly layoutRoot: HTMLElement;
+  private readonly searchInput: HTMLInputElement;
+  private readonly options: HTMLElement;
+  private readonly emptyStatus: HTMLElement;
   private _activeVoice: VoiceType;
   private readonly onTranslate?: () => void;
   private lastVisibilityState = false;
@@ -49,7 +52,11 @@ export default class VoicePopover extends UIComponentWithEvents<{
     this._activeVoice = activeVoice;
     this.layoutRoot = layoutRoot;
     this.onTranslate = onTranslate;
-    this.container = this.createElements().container;
+    const elements = this.createElements();
+    this.container = elements.container;
+    this.searchInput = elements.searchInput;
+    this.options = elements.options;
+    this.emptyStatus = elements.emptyStatus;
   }
 
   get activeVoice(): VoiceType {
@@ -90,10 +97,11 @@ export default class VoicePopover extends UIComponentWithEvents<{
 
   scheduleHide(): void {
     this.cancelShow();
-    if (this.hidden) return;
+    this.cancelHide();
+    if (this.hidden || this.container.matches(":focus-within")) return;
     this.hideTimer = setTimeout(() => {
       this.hideTimer = null;
-      this.close();
+      if (!this.container.matches(":focus-within")) this.close();
     }, VoicePopover.HIDE_DELAY_MS);
   }
 
@@ -146,18 +154,37 @@ export default class VoicePopover extends UIComponentWithEvents<{
   protected createElements() {
     const container = UI.createEl("vot-block", ["vot-voice-popover"]);
     container.id = this.id;
-    container.setAttribute("role", "menu");
-    container.setAttribute("aria-label", "Voice type selection");
     setInteractiveHiddenState(container, true);
 
-    container.append(
+    const options = UI.createEl("vot-block", ["vot-voice-popover__options"]);
+    options.id = `${this.id}-options`;
+    options.setAttribute("role", "menu");
+    options.setAttribute("aria-label", "Voice type selection");
+
+    const searchWrap = UI.createEl("vot-block", ["vot-select-search-wrap"]);
+    const searchInput = document.createElement("input");
+    searchInput.type = "search";
+    searchInput.className = "vot-select-search";
+    searchInput.placeholder = localizationProvider.get("searchField");
+    searchInput.setAttribute("aria-label", searchInput.placeholder);
+    searchInput.setAttribute("aria-controls", options.id);
+    searchInput.autocomplete = "off";
+    searchInput.spellcheck = false;
+    searchInput.addEventListener("input", () => this.filterOptions());
+    searchWrap.append(searchInput);
+
+    const emptyStatus = UI.createEl("vot-block", ["vot-select-status"]);
+    emptyStatus.setAttribute("role", "status");
+    emptyStatus.textContent = localizationProvider.get("notFound");
+    emptyStatus.hidden = true;
+
+    options.append(
       this.createItem(
         "standard",
         STANDARD_VOICE_ICON,
         localizationProvider.get("VOTStandardVoicesTitle"),
         localizationProvider.get("VOTStandardVoicesSubtitle"),
       ),
-      UI.createEl("vot-block", ["vot-voice-popover__divider"]),
       this.createItem(
         "live",
         LIVE_VOICE_ICON,
@@ -165,6 +192,8 @@ export default class VoicePopover extends UIComponentWithEvents<{
         localizationProvider.get("VOTLiveVoicesSubtitle"),
       ),
     );
+    container.append(searchWrap, options, emptyStatus);
+    container.addEventListener("keydown", (event) => this.onKeyDown(event));
 
     container.addEventListener("pointerenter", (e) => {
       if (e.pointerType === "touch") return;
@@ -174,8 +203,18 @@ export default class VoicePopover extends UIComponentWithEvents<{
       if (e.pointerType === "touch") return;
       this.scheduleHide();
     });
+    container.addEventListener("focusin", () => this.cancelHide());
+    container.addEventListener("focusout", () => {
+      queueMicrotask(() => {
+        if (
+          !container.matches(":focus-within, :hover") &&
+          !this.anchorEl?.matches(":hover")
+        )
+          this.scheduleHide();
+      });
+    });
 
-    return { container };
+    return { container, searchInput, options, emptyStatus };
   }
 
   private createItem(
@@ -188,6 +227,8 @@ export default class VoicePopover extends UIComponentWithEvents<{
     item.setAttribute("role", "menuitemradio");
     item.setAttribute("tabindex", "0");
     item.dataset.voice = voice;
+    item.dataset.searchText = `${title} ${subtitle}`.toLocaleLowerCase();
+    item.title = subtitle;
 
     const iconWrap = UI.createEl("vot-block", [
       "vot-voice-popover__item-icon",
@@ -216,6 +257,7 @@ export default class VoicePopover extends UIComponentWithEvents<{
     item.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
+        e.stopPropagation();
         select();
       }
     });
@@ -231,6 +273,8 @@ export default class VoicePopover extends UIComponentWithEvents<{
       return;
     }
     this.anchorEl = anchor;
+    this.searchInput.value = "";
+    this.filterOptions();
     this.hidden = false;
     this.updateActiveState();
     this.updatePosition(anchor);
@@ -262,12 +306,63 @@ export default class VoicePopover extends UIComponentWithEvents<{
   }
 
   private handleSelect(voice: VoiceType): void {
+    const restoreFocus = this.container.matches(":focus-within");
+    const anchor = this.anchorEl;
     this._activeVoice = voice;
     this.updateActiveState();
     this.cancelHide();
     this.dispatch("voiceChange", voice);
     this.onTranslate?.();
     this.hideNow();
+    if (restoreFocus) anchor?.focus({ preventScroll: true });
+  }
+
+  private filterOptions(): void {
+    const query = this.searchInput.value.trim().toLocaleLowerCase();
+    for (const item of this.options.querySelectorAll<HTMLElement>(
+      ".vot-voice-popover__item",
+    )) {
+      item.hidden = !item.dataset.searchText?.includes(query);
+      item.tabIndex = item.hidden ? -1 : 0;
+    }
+    this.emptyStatus.hidden = this.visibleOptions().length > 0;
+    if (this.isOpen && this.anchorEl) this.updatePosition(this.anchorEl);
+  }
+
+  private visibleOptions(): HTMLElement[] {
+    return Array.from(
+      this.options.querySelectorAll<HTMLElement>(
+        ".vot-voice-popover__item:not([hidden])",
+      ),
+    );
+  }
+
+  private onKeyDown(event: KeyboardEvent): void {
+    if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey)
+      return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      const anchor = this.anchorEl;
+      this.hideNow();
+      anchor?.focus({ preventScroll: true });
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    event.stopPropagation();
+    const items = this.visibleOptions();
+    if (!items.length) return;
+    const current = items.indexOf(event.target as HTMLElement);
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    const next =
+      current < 0
+        ? direction > 0
+          ? 0
+          : items.length - 1
+        : (current + direction + items.length) % items.length;
+    items[next].focus({ preventScroll: true });
+    items[next].scrollIntoView({ block: "nearest" });
   }
 
   private updateActiveState(): void {
