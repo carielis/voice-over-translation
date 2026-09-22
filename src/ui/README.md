@@ -46,7 +46,8 @@ asynchronous content can use its `footerContainer`. Existing `dialogTitle` and
 Search providers must return matching items. Only the latest result is applied;
 closing the list invalidates pending requests. A provider failure falls back to
 the base items. Selected labels are retained when remote results replace the
-visible list. The compact voice chooser also searches titles and descriptions.
+visible list. The voice chooser retains spacious cards with visible descriptions,
+wave icons and distinct mint/sand accents; its search filters titles and descriptions.
 
 ## Verification
 
