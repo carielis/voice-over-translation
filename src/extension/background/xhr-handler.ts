@@ -255,7 +255,7 @@ async function parseFetchResponseBody(
   return { response: text, responseText: text };
 }
 
-async function parseBinaryResponse(
+export async function parseBinaryResponse(
   res: Response,
   makeBase: (readyState: number) => {
     finalUrl: string;
@@ -270,7 +270,11 @@ async function parseBinaryResponse(
   responseText?: string;
   responseB64?: string;
 }> {
-  const contentLength = Number(res.headers.get("content-length") || 0);
+  const rawLength = res.headers.get("content-length");
+  const contentLength =
+    rawLength !== null && /^\d+$/.test(rawLength.trim())
+      ? Number(rawLength)
+      : Number.NaN;
   const shouldStream =
     !!res.body &&
     (!Number.isFinite(contentLength) ||
@@ -279,24 +283,28 @@ async function parseBinaryResponse(
   if (shouldStream) {
     let loaded = 0;
     const total = Number.isFinite(contentLength) ? contentLength : 0;
-    const reader = res.body?.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
+    const reader = res.body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
 
-      loaded += value.byteLength;
-      postMessage({
-        type: "progress",
-        state: "in_flight",
-        progress: {
-          ...makeBase(3),
-          loaded,
-          total,
-          lengthComputable: total > 0,
-          ...encodeProgressChunkForPort(value),
-        },
-      });
+        loaded += value.byteLength;
+        postMessage({
+          type: "progress",
+          state: "in_flight",
+          progress: {
+            ...makeBase(3),
+            loaded,
+            total,
+            lengthComputable: total > 0,
+            ...encodeProgressChunkForPort(value),
+          },
+        });
+      }
+    } finally {
+      reader.releaseLock();
     }
     return { response: undefined };
   }
