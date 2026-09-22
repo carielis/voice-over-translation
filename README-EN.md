@@ -120,6 +120,14 @@ Open [Firefox Add-ons][vot-firefox-store] and click "Add to Firefox"
 
 Open [Releases][vot-releases], click `vot-extension-firefox.xpi`, and confirm installation in Firefox
 
+### Accounts in the native extension
+
+Sign in through the authentication window. Manual token entry inside the page is
+available only in the Tampermonkey/Violentmonkey version. The native extension
+keeps the token in the background and sends it only to the Yandex API or built-in
+proxies. Custom proxies support anonymous translation but cannot receive the
+saved account token. [Read about the access boundaries](./src/extension/README.md).
+
 ## Features
 
 - Translate videos into Russian, English, or Kazakh from [supported source languages][vot-langs]

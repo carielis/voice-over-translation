@@ -9,7 +9,15 @@ import {
 } from "../shared/bodySerialization";
 import { PORT_NAME } from "../shared/constants";
 import { asErrorMessage } from "../shared/utils";
-import { ext, runtimeMessagesUseStructuredClone } from "../shared/webext";
+import {
+  ext,
+  runtimeMessagesUseStructuredClone,
+  storageGet,
+} from "../shared/webext";
+import {
+  hasAccountTokenPlaceholder,
+  prepareAuthenticatedRequest,
+} from "./account-policy";
 import {
   ensureDnrHeaderRuleForYandex,
   ensureDnrOriginStripRuleForYoutubei,
@@ -593,7 +601,7 @@ export function registerXhrPortListener(): void {
       const { details } = msg;
       const url = details.url;
       const method = (details.method || "GET").toUpperCase();
-      const { allHeaders, headers, forbiddenHeaders } =
+      let { allHeaders, headers, forbiddenHeaders } =
         splitRequestHeaders(details);
       const timeout = Number(details.timeout || 0);
       const responseType = String(details.responseType || "text").toLowerCase();
@@ -627,12 +635,27 @@ export function registerXhrPortListener(): void {
 
       const credentials = resolveFetchCredentials(details);
       const cache = resolveFetchCache(details);
-      const redirect: RequestRedirect =
+      let redirect: RequestRedirect =
         details.redirect === "error" || details.redirect === "manual"
           ? details.redirect
           : "follow";
 
       try {
+        if (hasAccountTokenPlaceholder(allHeaders)) {
+          const { account } = await storageGet<{ account?: unknown }>(
+            "account",
+          );
+          const authenticated = prepareAuthenticatedRequest(
+            { url, method, headers: allHeaders },
+            account,
+          );
+          ({ allHeaders, headers, forbiddenHeaders } = splitRequestHeaders({
+            ...details,
+            headers: authenticated.headers,
+          }));
+          redirect = authenticated.redirect ?? redirect;
+          controller.signal.throwIfAborted();
+        }
         try {
           await ensureDnrStripRuleForGooglevideo(url, forbiddenHeaders);
           await ensureDnrOriginStripRuleForYoutubei(url, forbiddenHeaders);

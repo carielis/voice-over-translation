@@ -86,6 +86,9 @@ export class VOTSessionStorageCache {
     _host: string,
     currentSessions: VOTSessions = {},
   ): Promise<VOTSessions> {
+    if (typeof IS_EXTENSION !== "undefined" && IS_EXTENSION) {
+      return currentSessions;
+    }
     const storageKey = this.getStorageKey();
     const rawStoredSession = await this.storage.getRaw<unknown>(storageKey);
     const restoredSessions = sanitizeVOTSessions(rawStoredSession);
@@ -106,6 +109,7 @@ export class VOTSessionStorageCache {
     _host: string,
     sessions: VOTSessions | undefined,
   ): Promise<void> {
+    if (typeof IS_EXTENSION !== "undefined" && IS_EXTENSION) return;
     const storageKey = this.getStorageKey();
     const sanitizedSessions = sanitizeVOTSessions(sessions);
     if (!hasSessions(sanitizedSessions)) {

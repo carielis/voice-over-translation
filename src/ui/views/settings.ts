@@ -1147,6 +1147,9 @@ export class SettingsView {
       openAuthWindow();
     });
     this.accountButton.addEventListener("click:secret", async () => {
+      // A token entered into a page-owned DOM can be read by that page.
+      // Native extensions keep account credentials in the background instead.
+      if (IS_EXTENSION) return openAuthWindow();
       const dialog = new Dialog({
         titleHtml: localizationProvider.get("VOTLoginViaToken"),
         isTemp: true,
