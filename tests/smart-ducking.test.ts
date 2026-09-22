@@ -221,10 +221,7 @@ describe("smart ducking engine", () => {
       volume: number;
       preserveStorage: boolean | undefined;
     }> = [];
-    const muteWrites: Array<{
-      muted: boolean;
-      preserveStorage: boolean | undefined;
-    }> = [];
+    const muteWrites: boolean[] = [];
     let currentVolume = 0.7;
     let currentMuted = false;
     const handler = {
@@ -248,22 +245,17 @@ describe("smart ducking engine", () => {
           preserveStorage: options?.preserveYoutubeVolumeStorage,
         });
       },
-      setVideoMuted: (
-        muted: boolean,
-        options?: { preserveYoutubeVolumeStorage?: boolean },
-      ) => {
+      setVideoMuted: (muted: boolean) => {
         currentMuted = muted;
-        muteWrites.push({
-          muted,
-          preserveStorage: options?.preserveYoutubeVolumeStorage,
-        });
+        muteWrites.push(muted);
       },
     } as any;
 
     setupAudioSettings.call(handler);
 
     expect(volumeWrites).toEqual([{ volume: 0, preserveStorage: true }]);
-    expect(muteWrites).toEqual([{ muted: true, preserveStorage: true }]);
+    expect(muteWrites).toEqual([true]);
+    expect(currentMuted).toBe(true);
     expect(handler.smartVolumeDuckingBaseline).toBe(0.7);
     expect(handler.autoVolumeMutedOnStart).toBe(false);
 
@@ -273,10 +265,8 @@ describe("smart ducking engine", () => {
       volume: 0.7,
       preserveStorage: undefined,
     });
-    expect(muteWrites.at(-1)).toEqual({
-      muted: false,
-      preserveStorage: undefined,
-    });
+    expect(muteWrites).toEqual([true, false]);
+    expect(currentMuted).toBe(false);
   });
 
   test("stop decision returns restore volume from baseline or volumeOnStart", () => {
