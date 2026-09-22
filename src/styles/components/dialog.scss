@@ -24,11 +24,11 @@
   border-radius: var(--vot-radius-l);
   margin: auto !important;
   padding: 0 !important;
-  background-color: var(--vot-helper-surface);
+  background: var(--vot-panel-background, var(--vot-helper-surface));
   color: var(--vot-helper-onsurface);
   box-shadow: var(--vot-shadow-2);
   @include shared.vot-font-family;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.5;
   user-select: none;
   visibility: visible;
@@ -75,7 +75,7 @@
   }
 
   &-backdrop {
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: rgba(4, 10, 9, 0.72);
     position: fixed;
     top: 0;
     right: 0;
@@ -103,6 +103,9 @@
     align-items: flex-start;
     display: flex;
     min-height: 31px;
+    border-bottom: 1px solid var(--vot-border-color);
+    background: rgba(var(--vot-primary-rgb), 0.03);
+    margin-bottom: var(--vot-space-4);
 
     &:empty {
       padding: 0 0 20px 0;
@@ -117,6 +120,7 @@
   &-title-container {
     display: flex;
     flex: 1;
+    min-width: 0;
     font-size: inherit;
     font-weight: inherit !important;
     margin: 0 !important;
@@ -125,9 +129,11 @@
 
   &-title {
     flex: 1;
-    font-size: calc(15 / 13 * 100%);
-    font-weight: bold !important;
-    line-height: 1;
+    font-size: 18px;
+    font-weight: 600 !important;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    overflow-wrap: anywhere;
     padding: var(--vot-space-5) var(--vot-space-5) var(--vot-space-4) !important;
   }
 
@@ -150,8 +156,12 @@
     flex-wrap: wrap;
     gap: var(--vot-space-2);
     padding: var(--vot-space-4) !important;
+    border-top: 1px solid var(--vot-border-color);
+    margin-top: var(--vot-space-4);
 
     &:empty {
+      border-top: 0;
+      margin-top: 0;
       padding: var(--vot-space-5) 0 0 0 !important;
     }
   }

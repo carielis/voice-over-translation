@@ -4,12 +4,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   color: var(--vot-helper-theme);
   fill: var(--vot-helper-theme);
+
+  > .vot-select {
+    flex: 1 1 0;
+    min-width: 0;
+
+    > .vot-select-outer {
+      width: 100%;
+      max-width: none;
+    }
+  }
 
   &-icon {
     width: 32px;
     height: 32px;
+    flex: 0 0 24px;
+    color: rgb(var(--vot-primary-rgb));
+    fill: currentColor;
     display: flex;
     justify-content: center;
     align-items: center;

@@ -14,23 +14,28 @@
     $padding: 0 var(--vot-space-4),
     $min-width: 64px,
     $height: 36px,
+    $font-weight: 600,
     $line-height: 36px
   );
   border: none !important;
   color: rgb(var(--vot-helper-ontheme));
   background-color: rgb(var(--vot-helper-theme));
-  box-shadow: var(--vot-shadow-1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
   transition: box-shadow var(--vot-duration-medium) var(--vot-easing-standard);
   @include button.vot-button-layers(rgb(var(--vot-helper-ontheme)));
   @include button.vot-button-layer-hover(0.08);
   @include button.vot-button-layer-active(0.32);
 
   &:hover {
-    box-shadow: var(--vot-shadow-2);
+    box-shadow: 0 3px 12px rgba(var(--vot-helper-theme), 0.16);
   }
 
   &:active {
-    box-shadow: var(--vot-shadow-2);
+    box-shadow: none;
+  }
+
+  &:focus-visible {
+    outline-color: rgb(var(--vot-helper-ontheme)) !important;
   }
 
   &[disabled="true"] {

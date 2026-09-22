@@ -1,8 +1,8 @@
 .vot-settings-section {
   border: 1px solid var(--vot-border-color);
-  border-radius: var(--vot-radius-l);
+  border-radius: var(--vot-radius-m);
   padding: var(--vot-space-2);
-  background: rgba(var(--vot-helper-onsurface-rgb), 0.03);
+  background: rgba(var(--vot-helper-onsurface-rgb), 0.025);
   display: flex;
   flex-direction: column;
 
@@ -20,7 +20,10 @@
 .vot-settings-section-header {
   margin: 0 !important;
   padding: 0.45em 0.5em !important;
-  border-radius: var(--vot-radius-m);
+  border-radius: var(--vot-radius-s);
+  color: rgb(var(--vot-primary-rgb));
+  font-size: 14px;
+  font-weight: 600 !important;
 }
 
 .vot-settings-section-header .vot-details-arrow-icon {
@@ -38,7 +41,7 @@
   // We still use a "comfort" width so dropdown pills are consistent.
   --vot-settings-control-width: 200px;
   // Slightly tighter vertical rhythm for long settings pages.
-  --vot-settings-row-gap: var(--vot-space-2);
+  --vot-settings-row-gap: var(--vot-space-3);
 
   display: flex;
   flex-direction: column;
@@ -111,7 +114,7 @@
     padding: 0 var(--vot-space-3) !important;
     border: 1px solid var(--vot-border-color) !important;
     border-radius: var(--vot-radius-s) !important;
-    background: rgba(var(--vot-helper-onsurface-rgb), 0.04) !important;
+    background: rgba(0, 0, 0, 0.16) !important;
     color: rgba(var(--vot-helper-onsurface-rgb), 0.9) !important;
     -webkit-text-fill-color: currentColor !important;
     box-shadow: none !important;

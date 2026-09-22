@@ -3,7 +3,7 @@
 .vot-icon-button {
   --vot-helper-onsurface: rgba(var(--vot-onsurface-rgb, 0, 0, 0), 0.87);
   @include button.vot-button-base(
-    $radius: 50%,
+    $radius: var(--vot-radius-s),
     $padding: 0,
     $min-width: 36px,
     $height: 36px,
@@ -16,7 +16,7 @@
   color: var(--vot-helper-onsurface);
   background-color: transparent;
   @include button.vot-button-layers(var(--vot-helper-onsurface));
-  @include button.vot-button-layer-hover(0.04);
+  @include button.vot-button-layer-hover(0.08);
   @include button.vot-button-layer-active(0.32);
   &[disabled="true"] {
     background-color: transparent;

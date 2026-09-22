@@ -16,13 +16,14 @@
   color: rgba(var(--vot-onsurface-rgb, 0, 0, 0), 0.87);
   font-family: var(
     --vot-font-family,
-    "Roboto",
+    "Aptos",
+    "Segoe UI Variable",
     "Segoe UI",
     system-ui,
     sans-serif
   ) !important;
   text-transform: none !important;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.5;
   text-align: start;
 
@@ -42,11 +43,11 @@
     padding: 0 !important;
     /* Telegram Web */
     opacity: 1;
-    border: solid 2px !important;
+    border: solid 1.5px !important;
     background: transparent;
     /* Safari */
     border-color: rgba(var(--vot-onsurface-rgb, 0, 0, 0), 0.6) !important;
-    border-radius: 2px !important;
+    border-radius: 5px !important;
     width: 18px;
     height: 18px;
     outline: none;

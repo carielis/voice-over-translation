@@ -9,23 +9,24 @@
   user-select: none;
   display: flex;
   align-items: center;
-  background: rgb(var(--vot-surface-rgb, 255, 255, 255));
+  background: var(--vot-panel-background, rgb(var(--vot-surface-rgb)));
   color: var(--vot-helper-theme);
   fill: var(--vot-helper-theme);
-  border-radius: 4px !important;
+  border-radius: var(--vot-radius-s) !important;
+  border: 1px solid var(--vot-border-color);
   @include shared.vot-font-family;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   cursor: default;
   transition: opacity 0.5s;
   position: absolute;
   z-index: 2147483647;
   inset: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--vot-shadow-1);
   width: max-content;
   max-width: calc(100vw - 10px);
   height: max-content;
-  padding: 4px 8px !important;
+  padding: 6px 10px !important;
   opacity: 0;
 
   &[data-trigger="click"] {
@@ -56,6 +57,7 @@
     padding: 0 !important;
     overflow: visible;
     background: transparent !important;
+    border: 0 !important;
     box-shadow: none !important;
     border-radius: 18px !important;
 

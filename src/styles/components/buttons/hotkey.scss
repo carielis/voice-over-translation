@@ -21,17 +21,18 @@
   );
   @include button.vot-button-base(
     $radius: var(--vot-radius-s),
-    $padding: 0 var(--vot-space-2),
+    $padding: 3px var(--vot-space-2),
     $min-width: 32px,
     $height: fit-content,
     $line-height: 1.5,
-    $font-size: 15px,
+    $font-size: 13px,
     $font-weight: 400,
     $margin: 0 !important
   );
   border: solid 1px var(--vot-border-color) !important;
   width: fit-content;
-  background-color: transparent;
+  background-color: rgba(var(--vot-onsurface-rgb), 0.04);
+  font-family: "Cascadia Mono", Consolas, monospace !important;
   @include button.vot-button-layers(rgb(var(--vot-helper-theme)));
   @include button.vot-button-layer-hover(0.04);
   @include button.vot-button-layer-active(0.16);

@@ -8,7 +8,8 @@
   justify-content: space-between;
   font-family: var(
     --vot-font-family,
-    "Roboto",
+    "Aptos",
+    "Segoe UI Variable",
     "Segoe UI",
     system-ui,
     sans-serif
@@ -26,14 +27,17 @@
     justify-content: space-between;
     max-width: 120px;
     width: 120px;
-    padding: 0 5px !important;
-    border: 1px solid var(--vot-helper-safari1) !important;
-    border-radius: 4px !important;
+    min-width: 0;
+    min-height: 36px;
+    padding: 0 10px !important;
+    border: 1px solid var(--vot-border-color) !important;
+    border-radius: var(--vot-radius-s) !important;
+    background: rgba(var(--vot-helper-theme-rgb), 0.045);
     cursor: pointer;
     transition: border 0.2s !important;
 
     &:hover {
-      border-color: var(--vot-helper-safari2) !important;
+      border-color: var(--vot-border-color-hover) !important;
     }
 
     &[disabled="true"] {
@@ -41,12 +45,13 @@
       cursor: default;
 
       &:hover {
-        border-color: var(--vot-helper-safari1) !important;
+        border-color: var(--vot-border-color) !important;
       }
     }
   }
 
   &-title {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -55,6 +60,7 @@
 
   &-arrow-icon {
     width: 20px;
+    flex-shrink: 0;
     height: 32px;
     display: flex;
     justify-content: center;
@@ -70,17 +76,17 @@
     flex-direction: column;
 
     .vot-select-content-item {
-      padding: 5px 10px !important;
-      border-radius: 8px !important;
+      padding: 9px 12px !important;
+      border-radius: var(--vot-radius-s) !important;
       cursor: pointer;
 
       &:not([inert]):hover {
-        background-color: rgb(42, 44, 49);
+        background-color: rgba(var(--vot-onsurface-rgb), 0.07);
       }
 
       &[data-vot-selected="true"] {
         color: rgb(var(--vot-primary-rgb, 33, 150, 243));
-        background-color: rgba(var(--vot-primary-rgb, 33, 150, 243), 0.2);
+        background-color: rgba(var(--vot-primary-rgb, 33, 150, 243), 0.12);
 
         &:hover {
           background-color: rgba(

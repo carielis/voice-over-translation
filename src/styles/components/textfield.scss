@@ -16,12 +16,13 @@
   padding-top: 6px !important;
   font-family: var(
     --vot-font-family,
-    "Roboto",
+    "Aptos",
+    "Segoe UI Variable",
     "Segoe UI",
     system-ui,
     sans-serif
   ) !important;
-  font-size: 16px !important;
+  font-size: 14px !important;
   line-height: 1.5 !important;
   text-align: start !important;
 
@@ -32,7 +33,7 @@
     border-width: 1px !important;
     border-color: transparent var(--vot-helper-safari2)
       var(--vot-helper-safari2) !important;
-    border-radius: 4px !important;
+    border-radius: var(--vot-radius-s) !important;
     padding: 15px 13px 15px !important;
     width: 100% !important;
     height: inherit !important;
