@@ -378,7 +378,6 @@ export class VOTVideoManager {
 
     const sharedLanguageState = getSharedLanguageState(videoId);
     sharedLanguageState.userLanguageOverride = normalizedLanguage;
-    sharedLanguageState.detectedLanguage = normalizedLanguage;
   }
 
   rememberDetectedLanguage(videoId: string, language: RequestLang): void {
