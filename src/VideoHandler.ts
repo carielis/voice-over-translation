@@ -170,6 +170,13 @@ export class VideoHandler {
   subtitlesLoadPromises = new Map<string, Promise<any[]>>();
   downloadTranslation: DownloadTranslationState | null = null;
 
+  /** Languages of the audio currently playing, independent of the menu selection. */
+  activeTranslationLanguages: {
+    videoId: string;
+    from: RequestLang;
+    to: ResponseLang;
+  } | null = null;
+
   isRefreshingTranslation = false;
 
   autoRetry?: ReturnType<typeof setTimeout>;
@@ -1130,6 +1137,7 @@ export class VideoHandler {
         }
       }
       this.downloadTranslation = null;
+      this.activeTranslationLanguages = null;
       this.longWaitingResCount = 0;
       this.hadAsyncWait = false;
       this.translationHandler?.stopTranslationEtaCountdown();

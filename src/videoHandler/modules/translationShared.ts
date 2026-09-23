@@ -84,11 +84,11 @@ export function buildTranslationCacheValue(options: {
 export async function withStaleGuard(
   actionContext: ActionContext | undefined,
   isActionStale: (ctx?: ActionContext) => boolean,
-  action: () => Promise<void>,
+  action: () => Promise<boolean>,
 ): Promise<boolean> {
   if (isActionStale(actionContext)) return false;
-  await action();
-  return !isActionStale(actionContext);
+  const succeeded = await action();
+  return succeeded !== false && !isActionStale(actionContext);
 }
 
 export async function updateTranslationIfFresh(options: {
@@ -100,7 +100,7 @@ export async function updateTranslationIfFresh(options: {
     url: string,
     actionContext?: ActionContext,
     usedLivelyVoice?: boolean,
-  ): Promise<void>;
+  ): Promise<boolean>;
 }): Promise<boolean> {
   return withStaleGuard(options.actionContext, options.isActionStale, () =>
     options.updateTranslation(

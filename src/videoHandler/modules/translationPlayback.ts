@@ -75,7 +75,8 @@ async function rollbackStaleAppliedSourceIfStillCurrent(
   if (!appliedSourceUrl || !handler.audioPlayer) return;
 
   const player = handler.audioPlayer.player;
-  const currentSource = String(player.currentSrc || player.src || "");
+  // currentSrc can still point to the previous track while the new src fails.
+  const currentSource = String(player.src || player.currentSrc || "");
   const normalizedCurrentUrl = handler.proxifyAudio(
     handler.unproxifyAudio(currentSource),
   );
@@ -127,13 +128,20 @@ export async function handlePlaybackResumedTranslationRefresh(
     return;
   }
 
+  const activeLanguages =
+    this.activeTranslationLanguages?.videoId === videoId
+      ? this.activeTranslationLanguages
+      : null;
+  const requestLang = activeLanguages?.from ?? this.translateFromLang;
+  const responseLang = activeLanguages?.to ?? this.translateToLang;
+
   const normalizedTranslationHelp = normalizeTranslationHelp(
     this.videoData.translationHelp,
   );
   const cacheKey = this.getTranslationCacheKey(
     videoId,
-    this.translateFromLang,
-    this.translateToLang,
+    requestLang,
+    responseLang,
     normalizedTranslationHelp,
   );
   const cachedEntry = this.cacheManager.getTranslation(cacheKey);
@@ -185,6 +193,8 @@ async function requestApplyAndCacheTranslation(
     await options.onBeforeCache(translateRes);
   }
 
+  if (self.isActionStale(options.actionContext)) return null;
+
   setTranslationCacheValue({
     cacheKey: options.cacheKey,
     setTranslation: (key, value) =>
@@ -193,9 +203,18 @@ async function requestApplyAndCacheTranslation(
     requestLang: options.cacheRequestLang,
     responseLang: options.cacheResponseLang,
     fallbackUrl: translateRes.url,
-    downloadTranslationUrl: self.downloadTranslation?.url,
+    downloadTranslationUrl:
+      self.downloadTranslation?.videoId === options.cacheVideoId
+        ? self.downloadTranslation.url
+        : undefined,
     usedLivelyVoice: translateRes.usedLivelyVoice,
   });
+
+  self.activeTranslationLanguages = {
+    videoId: options.cacheVideoId,
+    from: options.requestLang,
+    to: options.responseLang,
+  };
 
   return translateRes;
 }
@@ -210,6 +229,12 @@ export async function refreshTranslationAudio(
   if (this.isRefreshingTranslation) return;
   const videoId = this.videoData.videoId;
   if (!videoId) return;
+  const activeLanguages =
+    this.activeTranslationLanguages?.videoId === videoId
+      ? this.activeTranslationLanguages
+      : null;
+  const requestLang = activeLanguages?.from ?? this.translateFromLang;
+  const responseLang = activeLanguages?.to ?? this.translateToLang;
   if (this.actionsAbortController?.signal?.aborted) {
     this.resetActionsAbortController("refreshTranslationAudio");
   }
@@ -221,19 +246,19 @@ export async function refreshTranslationAudio(
   try {
     const translateRes = await requestApplyAndCacheTranslation(this, {
       videoData: this.videoData,
-      requestLang: this.translateFromLang,
-      responseLang: this.translateToLang,
+      requestLang,
+      responseLang,
       translationHelp: normalizedTranslationHelp,
       actionContext,
       cacheKey: this.getTranslationCacheKey(
         videoId,
-        this.translateFromLang,
-        this.translateToLang,
+        requestLang,
+        responseLang,
         normalizedTranslationHelp,
       ),
       cacheVideoId: videoId,
-      cacheRequestLang: this.translateFromLang,
-      cacheResponseLang: this.translateToLang,
+      cacheRequestLang: requestLang,
+      cacheResponseLang: responseLang,
     });
     if (!translateRes) return;
   } finally {
@@ -364,9 +389,9 @@ export async function updateTranslation(
   audioUrl: string,
   actionContext?: ActionContext,
   usedLivelyVoice = this.data?.useLivelyVoice !== false,
-): Promise<void> {
+): Promise<boolean> {
   await this.waitForPendingStopTranslate();
-  if (this.isActionStale(actionContext)) return;
+  if (this.isActionStale(actionContext)) return false;
   if (!this.audioPlayer) {
     this.createPlayer();
   }
@@ -376,7 +401,7 @@ export async function updateTranslation(
   }
 
   const normalizedTargetUrl = normalizeManagedAudioUrl(this, audioUrl);
-  if (this.isActionStale(actionContext)) return;
+  if (this.isActionStale(actionContext)) return false;
   const resolvedSource = await applyTranslationWithDirectFallback(
     this,
     normalizedTargetUrl,
@@ -386,20 +411,21 @@ export async function updateTranslation(
   const applyResult = resolvedSource.applyResult;
   const appliedSourceUrl = applyResult.appliedSourceUrl;
 
-  if (applyResult.status === "stale") return;
+  if (applyResult.status === "stale") return false;
 
   if (applyResult.status === "error") {
     debug.log("this.audioPlayer.init() error", applyResult.error);
     await rollbackStaleAppliedSourceIfStillCurrent(this, appliedSourceUrl);
     const msg = toErrorMessage(applyResult.error);
     this.transformBtn("error", msg);
-    return;
+    return false;
   }
 
   this.clearVolumeLinkState();
   this.setupAudioSettings();
   this.transformBtn("success", getTranslationActiveVoiceLabel(usedLivelyVoice));
   this.afterUpdateTranslation(resolvedAudioUrl);
+  return true;
 }
 
 export function syncTranslationPlaybackVolume(this: VideoHandler): void {
@@ -591,7 +617,17 @@ export async function translateFunc(
         (ctx) => this.isActionStale(ctx),
         () => applyTranslationUrl(cachedEntry.url, cachedEntry.useLivelyVoice),
       );
-      if (!applied) return;
+      if (!applied) {
+        if (!this.isActionStale(actionContext)) {
+          this.cacheManager.deleteTranslation(cacheKey);
+        }
+        return;
+      }
+      this.activeTranslationLanguages = {
+        videoId: VIDEO_ID,
+        from: reqLang,
+        to: resLang,
+      };
       debug.log("[translateFunc] Cached translation was received");
       return;
     }
