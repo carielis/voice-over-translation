@@ -248,10 +248,30 @@ export default class VoicePopover extends UIComponentWithEvents<{
     item.append(iconWrap, textWrap);
 
     const select = () => this.handleSelect(voice);
+    let touchStart: { x: number; y: number } | null = null;
+    let touchMoved = false;
     item.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0 && e.pointerType !== "touch") return;
-      e.preventDefault();
       e.stopPropagation();
+      touchMoved = false;
+      touchStart =
+        e.pointerType === "touch" ? { x: e.clientX, y: e.clientY } : null;
+    });
+    item.addEventListener("pointermove", (e) => {
+      if (
+        touchStart &&
+        Math.hypot(e.clientX - touchStart.x, e.clientY - touchStart.y) > 8
+      ) {
+        touchMoved = true;
+      }
+    });
+    item.addEventListener("pointercancel", () => {
+      touchMoved = true;
+    });
+    // A touch click is dispatched only after the gesture ends. Selecting on
+    // pointerdown would turn the start of a scroll into a translation request.
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (e.detail !== 0 && touchMoved) return;
       select();
     });
     item.addEventListener("keydown", (e) => {
