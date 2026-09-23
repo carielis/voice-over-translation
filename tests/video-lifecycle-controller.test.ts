@@ -235,5 +235,20 @@ describe("VideoLifecycleController metadata lookup", () => {
     expect(host.videoData).toBeUndefined();
     expect(host.uiManager.votOverlayView.votButton.container.hidden).toBe(true);
     expect(host.uiManager.votOverlayView.votMenu.hidden).toBe(true);
+    expect(host.stopTranslation).toHaveBeenCalledTimes(1);
+    expect(host.resetSubtitlesWidget).toHaveBeenCalledTimes(1);
+  });
+
+  test("stops old audio when current metadata lookup resolves without video data", async () => {
+    const host = createHost(async () => undefined);
+    const controller = await createController(host);
+    host.videoData = createVideoData("previous-video");
+    host.uiManager.votOverlayView.votButton.container.hidden = false;
+
+    await controller.setCanPlay();
+
+    expect(host.videoData).toBeUndefined();
+    expect(host.stopTranslation).toHaveBeenCalledTimes(1);
+    expect(host.uiManager.votOverlayView.votButton.container.hidden).toBe(true);
   });
 });

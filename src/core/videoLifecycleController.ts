@@ -233,10 +233,10 @@ export class VideoLifecycleController {
         `[VideoLifecycle] getVideoData failed for source ${sourceKey}`,
         err,
       );
-      this.host.videoData = undefined;
-      hideLifecycleOverlay(this.host.uiManager.votOverlayView, {
+      resetAndHideLifecycle(this.host, this.host.uiManager.votOverlayView, {
         hideMenu: true,
       });
+      this.host.videoData = undefined;
       return;
     }
 
@@ -328,7 +328,7 @@ export class VideoLifecycleController {
     this.host.firstPlay = true;
 
     const overlayView = this.host.uiManager.votOverlayView;
-    resetAndHideLifecycle(this.host, overlayView, { requireVideoData: true });
+    resetAndHideLifecycle(this.host, overlayView);
 
     const noSrc =
       !this.host.video.src &&

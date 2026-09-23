@@ -86,6 +86,7 @@ export function createVideoLifecycleHost(
       const nextVideoId = value?.videoId;
       if (previousVideoId !== nextVideoId) {
         handler.downloadTranslation = null;
+        handler.activeTranslationLanguages = null;
       }
       handler.videoData = value;
     },
