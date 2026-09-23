@@ -284,7 +284,11 @@ export default class Dialog extends UIComponentWithEvents<{
   private restoreFocus() {
     const el = this.previouslyFocused;
     this.previouslyFocused = null;
-    if (el && el instanceof HTMLElement && document.contains(el)) {
+    if (
+      el instanceof HTMLElement &&
+      el.isConnected &&
+      !el.matches(":disabled, [inert]")
+    ) {
       el.focus();
     }
   }
