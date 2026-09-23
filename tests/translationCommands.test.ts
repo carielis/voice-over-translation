@@ -46,6 +46,14 @@ const { handleTranslationButtonCommand } = await import(
   "../src/ui/translationCommands"
 );
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 function createVideoHandler(account?: { token?: string; expires?: number }) {
   const calls = {
     ensureDetectedLanguage: 0,
@@ -144,6 +152,21 @@ describe("translation auth command", () => {
     expect(videoHandler.calls.translateFunc).toBe(1);
   });
 
+  test("allows a new click after an earlier action was aborted", async () => {
+    const videoHandler = createVideoHandler();
+    videoHandler.actionsAbortController.abort("previous video");
+
+    await handleTranslationButtonCommand({
+      videoHandler: videoHandler as any,
+      currentStatus: "none",
+      currentLoading: false,
+      transformBtn: () => undefined,
+    });
+
+    expect(videoHandler.calls.ensureDetectedLanguage).toBe(1);
+    expect(videoHandler.calls.translateFunc).toBe(1);
+  });
+
   test("an idle error click retries in the same click without stopping", async () => {
     const videoHandler = createVideoHandler();
     const buttonStates: Array<[string, string]> = [];
@@ -187,4 +210,43 @@ describe("translation auth command", () => {
     expect(stops).toBe(1);
     expect(videoHandler.calls.translateFunc).toBe(0);
   });
+
+  test.each(["vk", "douyin"])(
+    "ignores late %s metadata after changing videos",
+    async (host) => {
+      const oldMetadata = deferred<any>();
+      const videoHandler = createVideoHandler() as any;
+      const previousVideoData = videoHandler.videoData;
+      videoHandler.site.host = host;
+      videoHandler.site.additionalData = host === "vk" ? "clips" : undefined;
+      videoHandler.getVideoData = () => oldMetadata.promise;
+      const requestedVideoIds: string[] = [];
+      videoHandler.translateFunc = async (videoId: string) => {
+        requestedVideoIds.push(videoId);
+      };
+
+      const command = handleTranslationButtonCommand({
+        videoHandler,
+        currentStatus: "none",
+        currentLoading: false,
+        transformBtn: () => undefined,
+      });
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        await Promise.resolve();
+      }
+
+      const currentVideoData = {
+        ...previousVideoData,
+        videoId: "next-video",
+      };
+      videoHandler.videoData = currentVideoData;
+      videoHandler.actionsAbortController.abort("navigation");
+      oldMetadata.resolve(previousVideoData);
+      await command;
+
+      expect(videoHandler.videoData).toBe(currentVideoData);
+      expect(requestedVideoIds).toEqual([]);
+      expect(videoHandler.calls.ensureDetectedLanguage).toBe(0);
+    },
+  );
 });

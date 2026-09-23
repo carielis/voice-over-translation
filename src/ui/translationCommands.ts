@@ -14,13 +14,21 @@ type TranslationButtonCommandDeps = {
   transformBtn(status: Status, text: string): void;
 };
 
-async function getVideoDataForTranslation(videoHandler: VideoHandler) {
+async function getVideoDataForTranslation(
+  videoHandler: VideoHandler,
+  isCurrentContext: () => boolean,
+) {
   if (!videoHandler.videoData?.videoId) {
     throw new VOTLocalizedError("VOTNoVideoIDFound");
   }
 
   if (shouldRefreshVideoDataBeforeTranslation(videoHandler)) {
-    videoHandler.videoData = await videoHandler.getVideoData();
+    const previousVideoData = videoHandler.videoData;
+    const refreshedVideoData = await videoHandler.getVideoData();
+    if (!isCurrentContext() || videoHandler.videoData !== previousVideoData) {
+      return undefined;
+    }
+    videoHandler.videoData = refreshedVideoData;
   }
 
   if (!videoHandler.videoData?.videoId) {
@@ -62,6 +70,23 @@ export async function handleTranslationButtonCommand(
     return;
   }
 
+  const currentVideoData = videoHandler.videoData;
+  const currentVideoElement = videoHandler.video;
+  const currentSource = currentVideoElement?.currentSrc || currentVideoElement?.src;
+  const currentPageUrl = globalThis.location?.href;
+  const currentAbortController = videoHandler.actionsAbortController;
+  const currentSignal = currentAbortController.signal;
+  const signalWasAborted = currentSignal.aborted;
+  const currentGeneration = videoHandler.actionsGeneration;
+  const isCurrentContext = () =>
+    (signalWasAborted || !currentSignal.aborted) &&
+    videoHandler.actionsAbortController === currentAbortController &&
+    videoHandler.actionsGeneration === currentGeneration &&
+    videoHandler.video === currentVideoElement &&
+    (videoHandler.video?.currentSrc || videoHandler.video?.src) ===
+      currentSource &&
+    globalThis.location?.href === currentPageUrl;
+
   debug.log("[handleTranslationBtnClick] click translationBtn");
   if (videoHandler.hasActiveSource()) {
     debug.log("[handleTranslationBtnClick] video has active source");
@@ -86,9 +111,16 @@ export async function handleTranslationButtonCommand(
 
   try {
     await prepareAuthStateForTranslation(videoHandler);
+    if (!isCurrentContext() || videoHandler.videoData !== currentVideoData) {
+      return;
+    }
 
     debug.log("[handleTranslationBtnClick] trying execute translation");
-    const videoData = await getVideoDataForTranslation(videoHandler);
+    const videoData = await getVideoDataForTranslation(
+      videoHandler,
+      isCurrentContext,
+    );
+    if (!videoData) return;
 
     // Automatic fallback belongs only to the video where it was selected.
     // Reset it before resolving the language of a newly opened video.
@@ -104,6 +136,9 @@ export async function handleTranslationButtonCommand(
     await videoHandler.videoManager.ensureDetectedLanguageForTranslation(
       videoData,
     );
+    if (!isCurrentContext() || videoHandler.videoData !== videoData) {
+      return;
+    }
 
     debug.log(
       "[handleTranslationBtnClick] Run translateFunc",
@@ -122,6 +157,7 @@ export async function handleTranslationButtonCommand(
       videoData.translationHelp,
     );
   } catch (err) {
+    if (!isCurrentContext()) return;
     if (isAbortError(err)) {
       deps.transformBtn("none", localizationProvider.get("translateVideo"));
       return;
