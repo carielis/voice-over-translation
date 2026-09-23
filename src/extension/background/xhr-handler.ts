@@ -23,7 +23,9 @@ import {
   ensureDnrOriginStripRuleForYoutubei,
   ensureDnrStripRuleForGooglevideo,
   isForbiddenToSetViaFetch,
+  withDnrRequestLock,
 } from "./dnr-rules";
+import { resolveRequestPolicy } from "./request-policy";
 
 type XhrStartMessage = {
   type: "start";
@@ -332,11 +334,14 @@ export function registerXhrPortListener(): void {
     if (!port || typeof port !== "object") return;
     const typedPort = port as {
       name?: string;
+      sender?: { id?: string; url?: string };
       onDisconnect?: { addListener?: (fn: () => void) => void };
       onMessage?: { addListener?: (fn: (msg: XhrPortMessage) => void) => void };
       postMessage?: (payload: unknown) => void;
     };
     if (typedPort.name !== PORT_NAME) return;
+    if (!typedPort.sender?.url) return;
+    if (typedPort.sender.id && typedPort.sender.id !== ext?.runtime?.id) return;
     if (
       typeof typedPort.onDisconnect?.addListener !== "function" ||
       typeof typedPort.onMessage?.addListener !== "function" ||
@@ -416,13 +421,6 @@ export function registerXhrPortListener(): void {
         // ignore
       }
     };
-
-    const resolveFetchCredentials = (
-      details: XhrStartMessage["details"],
-    ): RequestCredentials =>
-      details.anonymous || details.withCredentials === false
-        ? "omit"
-        : "include";
 
     const resolveFetchCache = (
       details: XhrStartMessage["details"],
@@ -598,8 +596,9 @@ export function registerXhrPortListener(): void {
       const shouldAbortImmediately = abortedByUser && controller === null;
       abortedByUser = false;
 
-      const { details } = msg;
-      const url = details.url;
+      const details =
+        msg.details && typeof msg.details === "object" ? msg.details : { url: "" };
+      const url = String(details.url ?? "");
       const method = (details.method || "GET").toUpperCase();
       let { allHeaders, headers, forbiddenHeaders } =
         splitRequestHeaders(details);
@@ -633,14 +632,23 @@ export function registerXhrPortListener(): void {
         }, timeout) as unknown as number;
       }
 
-      const credentials = resolveFetchCredentials(details);
       const cache = resolveFetchCache(details);
-      let redirect: RequestRedirect =
-        details.redirect === "error" || details.redirect === "manual"
-          ? details.redirect
-          : "follow";
 
       try {
+        const { proxyWorkerHost } = await storageGet<{
+          proxyWorkerHost?: unknown;
+        }>("proxyWorkerHost");
+        const requestPolicy = resolveRequestPolicy(
+          url,
+          method,
+          typedPort.sender?.url,
+          proxyWorkerHost,
+        );
+        const credentials =
+          details.anonymous || details.withCredentials === false
+            ? "omit"
+            : requestPolicy.credentials;
+        const redirect: RequestRedirect = requestPolicy.redirect;
         if (hasAccountTokenPlaceholder(allHeaders)) {
           const { account } = await storageGet<{ account?: unknown }>(
             "account",
@@ -653,20 +661,8 @@ export function registerXhrPortListener(): void {
             ...details,
             headers: authenticated.headers,
           }));
-          redirect = authenticated.redirect ?? redirect;
           controller.signal.throwIfAborted();
         }
-        try {
-          await ensureDnrStripRuleForGooglevideo(url, forbiddenHeaders);
-          await ensureDnrOriginStripRuleForYoutubei(url, forbiddenHeaders);
-          await ensureDnrHeaderRuleForYandex(url, forbiddenHeaders);
-        } catch (e) {
-          console.warn(
-            "[VOT Extension] Failed to apply DNR header rules; requests may break:",
-            e,
-          );
-        }
-
         const body = normalizeRequestBody(details, method, allHeaders, url);
         debug.log("[VOT EXT][background][xhr] fetch dispatch", {
           xhrSessionId,
@@ -678,17 +674,29 @@ export function registerXhrPortListener(): void {
           body: summarizeBodyForDebug(body),
         });
 
-        const res = await fetch(
-          url,
-          createRequestInit({
-            method,
-            headers,
-            redirect,
-            credentials,
-            body,
-            cache,
-          }),
-        );
+        const res = await withDnrRequestLock(url, async () => {
+          try {
+            await ensureDnrStripRuleForGooglevideo(url, forbiddenHeaders);
+            await ensureDnrOriginStripRuleForYoutubei(url, forbiddenHeaders);
+            await ensureDnrHeaderRuleForYandex(url, forbiddenHeaders);
+          } catch (e) {
+            console.warn(
+              "[VOT Extension] Failed to apply DNR header rules; requests may break:",
+              e,
+            );
+          }
+          return await fetch(
+            url,
+            createRequestInit({
+              method,
+              headers,
+              redirect,
+              credentials,
+              body,
+              cache,
+            }),
+          );
+        });
         await handleFetchSuccess({ url, method, responseType, res });
       } catch (err) {
         handleFetchFailure(url, method, responseType, err);
