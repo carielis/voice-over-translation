@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { type InlineConfig, type UserConfig, build as viteBuild } from "vite";
 import { zipDir } from "../../../scripts/zip/utils";
+import { contentUrl } from "../../../src/config/config";
 import { type BuildConfig, type BuildEnvMeta, buildDefine } from "../env";
 import {
   distExtDir,
@@ -27,8 +28,7 @@ const EXTENSION_MODULE_FILES = [
   "content.module.js",
 ] as const;
 
-const GITHUB_DIST_EXT_RAW_BASE =
-  "https://raw.githubusercontent.com/ilyhalight/voice-over-translation/master/dist-ext";
+const GITHUB_DIST_EXT_RAW_BASE = `${contentUrl}/master/dist-ext`;
 const FIREFOX_UPDATES_MANIFEST_FILE = "vot-extension-firefox-updates.json";
 const FIREFOX_UPDATES_MANIFEST_URL = `${GITHUB_DIST_EXT_RAW_BASE}/${FIREFOX_UPDATES_MANIFEST_FILE}`;
 
