@@ -1,4 +1,5 @@
 import {
+  contentUrl,
   detectRustServerUrl,
   foswlyTranslateUrl,
   proxyWorkerHost,
@@ -28,6 +29,7 @@ const BUILTIN_PROXY_HOSTS = new Set([
 ]);
 const PROXY_HOST_SUFFIXES = [".eu.cc", ".workers.dev", ".toil.cc"];
 const SITE_MEDIA_HOSTS = ["youtube.com", "vimeo.com", "porntn.com"];
+const LOCALE_SOURCE_PATH = `${new URL(contentUrl).pathname}/`;
 
 function isHostOrSubdomain(hostname: string, domain: string): boolean {
   return hostname === domain || hostname.endsWith(`.${domain}`);
@@ -99,8 +101,11 @@ function isAllowedPublicEndpoint(
       return pathname.startsWith("/vtrans/");
     }
     if (hostname === "raw.githubusercontent.com") {
-      return /^\/ilyhalight\/voice-over-translation\/[^/]+\/src\/localization\/(?:hashes\.json|locales\/[^/]+\.json)$/.test(
-        pathname,
+      return (
+        pathname.startsWith(LOCALE_SOURCE_PATH) &&
+        /^[^/]+\/src\/localization\/(?:hashes\.json|locales\/[^/]+\.json)$/.test(
+          pathname.slice(LOCALE_SOURCE_PATH.length),
+        )
       );
     }
     if (hostname === "cloudflare-dns.com") {

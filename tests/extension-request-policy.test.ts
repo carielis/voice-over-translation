@@ -75,7 +75,7 @@ describe("privileged extension request policy", () => {
       "https://brosubs.s3-private.mds.yandex.net/vtrans/test.json",
       "https://vot-worker.eu.cc/video-subtitles/subtitles-proxy/test.json",
       "https://rr1---sn.googlevideo.com/videoplayback?id=test",
-      "https://raw.githubusercontent.com/ilyhalight/voice-over-translation/master/src/localization/locales/ru.json",
+      "https://raw.githubusercontent.com/carielis/voice-over-translation/master/src/localization/locales/ru.json",
       "https://api.vimeo.com/videos/123/texttracks?per_page=100",
     ]) {
       expect(resolveRequestPolicy(url, "GET", sender).credentials).toBe("omit");
