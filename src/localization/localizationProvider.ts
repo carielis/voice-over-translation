@@ -77,13 +77,14 @@ class LocalizationProvider {
   }
 
   async init() {
-    const [langOverride, phrases] = await Promise.all([
+    const [langOverride, phrases, cachedLang] = await Promise.all([
       votStorage.get<LangOverride>("localeLangOverride", "auto"),
       votStorage.get<string>("localePhrases", ""),
+      votStorage.get<string>("localeLang", ""),
     ]);
     this._langOverride = langOverride;
     this.lang = this.getLang();
-    this.setLocaleFromJsonString(phrases);
+    this.setLocaleFromJsonString(cachedLang === this.lang ? phrases : "");
     return this;
   }
 
@@ -111,6 +112,7 @@ class LocalizationProvider {
 
   async changeLang(newLang: LangOverride) {
     const oldLang = this.langOverride;
+    const previousLang = this.lang;
     if (oldLang === newLang) {
       return false;
     }
@@ -118,6 +120,11 @@ class LocalizationProvider {
     await votStorage.set("localeLangOverride", newLang);
     this._langOverride = newLang;
     this.lang = this.getLang();
+    if (this.lang !== previousLang) {
+      // The previous language must not remain visible if the new locale cannot
+      // be fetched while offline.
+      this.setLocaleFromJsonString("");
+    }
     await this.update(true);
     return true;
   }
@@ -126,6 +133,11 @@ class LocalizationProvider {
     debug.log("Check locale updates...");
     try {
       const runtimeLocaleVersion = getRuntimeLocaleVersion();
+      const [cachedLang, cachedPhrases] = await Promise.all([
+        votStorage.get<string>("localeLang", ""),
+        votStorage.get<string>("localePhrases", ""),
+      ]);
+      const hasMatchingLocale = cachedLang === this.lang && !!cachedPhrases;
       if (!force) {
         const storedLocaleVersion = await votStorage.get<string>(
           "localeVersion",
@@ -135,7 +147,8 @@ class LocalizationProvider {
         // version has not changed, the cached locale hash is still valid.
         if (
           runtimeLocaleVersion !== "unknown" &&
-          storedLocaleVersion === runtimeLocaleVersion
+          storedLocaleVersion === runtimeLocaleVersion &&
+          hasMatchingLocale
         ) {
           return false;
         }
@@ -155,7 +168,7 @@ class LocalizationProvider {
       }
 
       const currentHash = await votStorage.get<string>("localeHash", "");
-      return currentHash === nextHash ? false : nextHash;
+      return hasMatchingLocale && currentHash === nextHash ? false : nextHash;
     } catch (err) {
       console.error(
         "[VOT] [localizationProvider] Failed to get locales hash:",
@@ -206,7 +219,13 @@ class LocalizationProvider {
       ]);
     } catch (err) {
       console.error("[VOT] [localizationProvider] Failed to get locale:", err);
-      this.setLocaleFromJsonString(await votStorage.get("localePhrases", ""));
+      const [cachedLang, cachedPhrases] = await Promise.all([
+        votStorage.get<string>("localeLang", ""),
+        votStorage.get<string>("localePhrases", ""),
+      ]);
+      this.setLocaleFromJsonString(
+        cachedLang === this.lang ? cachedPhrases : "",
+      );
     }
 
     return this;
