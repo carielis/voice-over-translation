@@ -28,7 +28,9 @@ popover positions are measured by the layout code. Keep hidden/inert semantics,
 keyboard focus indicators and subtitle geometry intact. Menus and language
 controls must fit the containing player, including narrow embedded players.
 Voice-card placement clamps viewport coordinates against the player's offset
-bounds before converting them to local coordinates.
+bounds before converting them to local coordinates. In tiny players, the voice
+chooser uses compact cards and hides its two-option search field; the panel
+scrolls when the player is too short to show both choices at once.
 
 ## Searchable selects
 

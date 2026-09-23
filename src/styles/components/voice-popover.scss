@@ -321,6 +321,45 @@
 
     margin: 2px 0 !important;
   }
+
+  &--compact {
+    // Two choices remain available without the search field in a tiny player.
+    .vot-select-search-wrap,
+    .vot-voice-popover__item-subtitle {
+      display: none;
+    }
+
+    .vot-voice-popover__options {
+      gap: 2px;
+    }
+
+    .vot-voice-popover__item {
+      gap: 5px;
+      min-height: 24px;
+      padding: 3px 20px 3px 5px !important;
+
+      &::after {
+        right: 4px;
+        width: 12px;
+        height: 12px;
+      }
+    }
+
+    .vot-voice-popover__item-icon {
+      width: 18px;
+      height: 20px;
+
+      svg {
+        width: 14px;
+        height: 14px;
+      }
+    }
+
+    .vot-voice-popover__item-title {
+      font-size: 12px;
+      line-height: 1.2;
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

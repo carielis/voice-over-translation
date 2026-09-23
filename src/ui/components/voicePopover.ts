@@ -40,6 +40,7 @@ export default class VoicePopover extends UIComponentWithEvents<{
   private anchorEl: HTMLElement | null = null;
   private outsideTapHandler: ((e: PointerEvent) => void) | null = null;
   private layoutListening = false;
+  private layoutResizeObserver: ResizeObserver | null = null;
 
   private readonly onLayoutChangeBound = (): void => {
     if (this.isOpen && this.anchorEl) {
@@ -337,7 +338,7 @@ export default class VoicePopover extends UIComponentWithEvents<{
     if (restoreFocus) anchor?.focus({ preventScroll: true });
   }
 
-  private filterOptions(): void {
+  private filterOptions(reposition = true): void {
     const query = this.searchInput.value.trim().toLocaleLowerCase();
     for (const item of this.options.querySelectorAll<HTMLElement>(
       ".vot-voice-popover__item",
@@ -346,7 +347,8 @@ export default class VoicePopover extends UIComponentWithEvents<{
       item.tabIndex = item.hidden ? -1 : 0;
     }
     this.emptyStatus.hidden = this.visibleOptions().length > 0;
-    if (this.isOpen && this.anchorEl) this.updatePosition(this.anchorEl);
+    if (reposition && this.isOpen && this.anchorEl)
+      this.updatePosition(this.anchorEl);
   }
 
   private visibleOptions(): HTMLElement[] {
@@ -419,7 +421,13 @@ export default class VoicePopover extends UIComponentWithEvents<{
 
     this.container.style.setProperty(
       "--vot-voice-popover-max-width",
-      `${Math.max(160, Math.min(310, placement === "left" ? spaceLeft : spaceRight))}px`,
+      `${Math.min(
+        Math.max(0, rootRect.width - gap * 2),
+        Math.max(
+          160,
+          Math.min(310, placement === "left" ? spaceLeft : spaceRight),
+        ),
+      )}px`,
     );
     const popoverRect = this.container.getBoundingClientRect();
     const top =
@@ -443,7 +451,10 @@ export default class VoicePopover extends UIComponentWithEvents<{
       spaceAbove >= spaceBelow ? "top" : "bottom";
     this.container.style.setProperty(
       "--vot-voice-popover-max-height",
-      `${Math.max(96, placement === "top" ? spaceAbove : spaceBelow)}px`,
+      `${Math.min(
+        Math.max(0, rootRect.height - gap * 2),
+        Math.max(96, placement === "top" ? spaceAbove : spaceBelow),
+      )}px`,
     );
     const popoverRect = this.container.getBoundingClientRect();
     const left =
@@ -461,8 +472,14 @@ export default class VoicePopover extends UIComponentWithEvents<{
 
     const rootRect = this.layoutRoot.getBoundingClientRect();
     const gap = 8;
-    const maxRootWidth = Math.max(160, rootRect.width - gap * 2);
-    const maxRootHeight = Math.max(96, rootRect.height - gap * 2);
+    const maxRootWidth = Math.max(0, rootRect.width - gap * 2);
+    const maxRootHeight = Math.max(0, rootRect.height - gap * 2);
+    const compact = maxRootWidth < 230 || maxRootHeight < 120;
+    this.container.classList.toggle("vot-voice-popover--compact", compact);
+    if (compact && this.searchInput.value) {
+      this.searchInput.value = "";
+      this.filterOptions(false);
+    }
 
     this.container.style.setProperty(
       "--vot-voice-popover-max-width",
@@ -506,6 +523,8 @@ export default class VoicePopover extends UIComponentWithEvents<{
   private attachLayoutListeners(): void {
     if (this.layoutListening) return;
     this.layoutListening = true;
+    this.layoutResizeObserver = new ResizeObserver(this.onLayoutChangeBound);
+    this.layoutResizeObserver.observe(this.layoutRoot);
     window.addEventListener("scroll", this.onLayoutChangeBound, true);
     window.addEventListener("resize", this.onLayoutChangeBound);
     window.visualViewport?.addEventListener("scroll", this.onLayoutChangeBound);
@@ -515,6 +534,8 @@ export default class VoicePopover extends UIComponentWithEvents<{
   private detachLayoutListeners(): void {
     if (!this.layoutListening) return;
     this.layoutListening = false;
+    this.layoutResizeObserver?.disconnect();
+    this.layoutResizeObserver = null;
     window.removeEventListener("scroll", this.onLayoutChangeBound, true);
     window.removeEventListener("resize", this.onLayoutChangeBound);
     window.visualViewport?.removeEventListener(
