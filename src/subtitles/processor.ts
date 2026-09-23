@@ -794,6 +794,9 @@ const fetchRawSubtitles = async (
   format: SubtitleFormat,
 ): Promise<unknown> => {
   const response = await GM_fetch(url, { timeout: 7000 });
+  if (!response.ok) {
+    throw new Error(`Failed to load subtitles: HTTP ${response.status}`);
+  }
   if (format === "vtt" || format === "srt" || format === "ass") {
     const text = await response.text();
     return parseSubtitleText(text, format);
@@ -992,7 +995,7 @@ export const SubtitlesProcessor = {
       return subtitlesWithTokens;
     } catch (error) {
       console.error("[VOT] Failed to process subtitles:", error);
-      return { format: "json", subtitles: [] };
+      throw error;
     }
   },
 

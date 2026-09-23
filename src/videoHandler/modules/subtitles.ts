@@ -21,6 +21,13 @@ import {
 export { resolveSubtitlesLanguage } from "./subtitlesShared";
 
 const subtitlesSelectionRequestVersion = new WeakMap<VideoHandler, number>();
+const subtitlesLoadRequestVersion = new WeakMap<VideoHandler, number>();
+
+function nextSubtitlesLoadRequestVersion(handler: VideoHandler): number {
+  const nextVersion = (subtitlesLoadRequestVersion.get(handler) ?? 0) + 1;
+  subtitlesLoadRequestVersion.set(handler, nextVersion);
+  return nextVersion;
+}
 
 function getPreferredSubtitlesLanguage(
   handler: VideoHandler,
@@ -159,6 +166,7 @@ export async function changeSubtitlesLang(
 ): Promise<VideoHandler> {
   debug.log("[onchange] subtitles", subs);
   const requestVersion = nextSubtitlesSelectionRequestVersion(this);
+  const videoData = this.videoData;
   const overlayView = this.uiManager.votOverlayView;
   if (!overlayView?.subtitlesSelect || !overlayView.downloadSubtitlesButton) {
     return this;
@@ -195,9 +203,24 @@ export async function changeSubtitlesLang(
     debug.log(`[VOT] Subs proxied via ${subtitlesObj.url}`);
   }
 
-  const fetchedSubtitles =
-    await SubtitlesProcessor.fetchSubtitles(subtitlesObj);
-  if (!isCurrentSubtitlesSelectionRequest(this, requestVersion)) {
+  let fetchedSubtitles: Awaited<ReturnType<typeof SubtitlesProcessor.fetchSubtitles>>;
+  try {
+    fetchedSubtitles = await SubtitlesProcessor.fetchSubtitles(subtitlesObj);
+  } catch (error) {
+    if (
+      isCurrentSubtitlesSelectionRequest(this, requestVersion) &&
+      this.videoData === videoData
+    ) {
+      console.error("[VOT] Failed to load selected subtitles:", error);
+      overlayView.subtitlesSelect.setSelectedValue(DISABLED_SUBTITLES_VALUE);
+      clearSelectedSubtitles(this, overlayView);
+    }
+    return this;
+  }
+  if (
+    !isCurrentSubtitlesSelectionRequest(this, requestVersion) ||
+    this.videoData !== videoData
+  ) {
     return this;
   }
 
@@ -341,6 +364,7 @@ export async function toggleSubtitlesForCurrentLangPair(this: VideoHandler) {
 }
 
 export async function loadSubtitles(this: VideoHandler) {
+  const requestVersion = nextSubtitlesLoadRequestVersion(this);
   if (!this.videoData?.videoId) {
     console.error(
       `[VOT] ${localizationProvider.getDefault("VOTNoVideoIDFound")}`,
@@ -363,6 +387,20 @@ export async function loadSubtitles(this: VideoHandler) {
     this.videoData.detectedLanguage,
     subtitleLanguage,
   );
+  const requestedVideoData = this.videoData;
+  const isCurrentRequest = () => {
+    const currentVideoData = this.videoData;
+    return (
+      subtitlesLoadRequestVersion.get(this) === requestVersion &&
+      currentVideoData === requestedVideoData &&
+      getPreferredSubtitlesLanguage(this) === subtitleLanguage &&
+      this.getSubtitlesCacheKey(
+        currentVideoData.videoId,
+        currentVideoData.detectedLanguage,
+        subtitleLanguage,
+      ) === cacheKey
+    );
+  };
   try {
     let cachedSubs = this.cacheManager.getSubtitles(cacheKey);
     if (!cachedSubs) {
@@ -392,9 +430,11 @@ export async function loadSubtitles(this: VideoHandler) {
         }
       }
     }
+    if (!isCurrentRequest()) return;
     this.subtitles = Array.isArray(cachedSubs) ? cachedSubs : [];
     this.subtitlesCacheKey = cacheKey;
   } catch (error) {
+    if (!isCurrentRequest()) return;
     console.error("[VOT] Failed to load subtitles:", error);
     this.subtitles = [];
     this.subtitlesCacheKey = null;
