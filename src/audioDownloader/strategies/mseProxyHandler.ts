@@ -2,6 +2,7 @@ import { AudioDownloadType } from "@vot.js/core/types/yandex";
 import { config } from "@vot.js/shared";
 import debug from "../../utils/debug";
 import { isAbortError } from "../../utils/errors";
+import { normalizeAudioLanguageTag } from "../utils";
 import { type AudioChunk, concatBuffers } from "./audioChunks";
 import { getWebAbrAudioChunks } from "./webAbr";
 
@@ -71,6 +72,21 @@ function getSourceLanguage(message: MseMessage): string | undefined {
   return typeof sourceLanguage === "string" && sourceLanguage
     ? sourceLanguage
     : undefined;
+}
+
+function getUnverifiableMseLanguage(
+  sourceLanguage?: string,
+): string | undefined {
+  const requestedLanguage = normalizeAudioLanguageTag(sourceLanguage);
+  return requestedLanguage && requestedLanguage !== "auto"
+    ? requestedLanguage
+    : undefined;
+}
+
+function makeMseLanguageError(language: string): Error {
+  return new Error(
+    `Audio downloader. MSE fallback cannot verify source language ${language}`,
+  );
 }
 
 async function getEncryptedEmbedConfig(
@@ -317,6 +333,7 @@ export function createAudioChunkStream(
   videoId: string,
   signal: AbortSignal,
   onProgress?: () => void,
+  sourceLanguage?: string,
 ): ReadableStream<AudioChunk> {
   let cleanup = () => {};
   let finished = false;
@@ -346,6 +363,12 @@ export function createAudioChunkStream(
       };
       try {
         signal.throwIfAborted();
+        const requestedLanguage = getUnverifiableMseLanguage(sourceLanguage);
+        if (requestedLanguage) {
+          // The iframe player API cannot select or verify its audio track. A
+          // best-effort capture could silently upload a different language.
+          throw makeMseLanguageError(requestedLanguage);
+        }
         debug.log("Audio downloader. MSE iframe stream started", { videoId });
         const player = await getPlayer(targetWindow, signal);
         signal.throwIfAborted();
@@ -674,6 +697,7 @@ async function handleIframeRequest(
             videoId,
             controller.signal,
             postProgress,
+            getSourceLanguage(message),
           );
     if (audioDownloadType === AudioDownloadType.WEB_ABR) {
       postProgress();
@@ -753,6 +777,20 @@ async function handleTopRequest(
         : "Audio downloader. Missing video id",
     });
     return;
+  }
+
+  if (audioDownloadType === AudioDownloadType.WEB_MSE_PROXY) {
+    const requestedLanguage = getUnverifiableMseLanguage(
+      getSourceLanguage(message),
+    );
+    if (requestedLanguage) {
+      postResponse(source, event.origin, {
+        ...message,
+        messageDirection: "response",
+        error: makeMseLanguageError(requestedLanguage).message,
+      });
+      return;
+    }
   }
 
   debug.log("Audio downloader. top request started", {

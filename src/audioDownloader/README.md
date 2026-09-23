@@ -5,6 +5,11 @@ Implemented:
 - `web_abr`
 - `web_mse_proxy`
 
+The MSE fallback cannot verify or choose an audio language in YouTube's embed
+player. When a specific source language is selected, it fails instead of
+uploading a potentially different audio track. `web_abr` remains the primary
+path for language-specific audio. MSE capture is available for `auto`.
+
 The downloader keeps one completed audio source for retries after a failed upload.
 The cache key includes the video ID and normalized source language (case,
 surrounding whitespace, and `_`/`-` differences are ignored). Changing the source
