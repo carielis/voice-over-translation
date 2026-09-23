@@ -17,6 +17,7 @@ import {
 } from "../shared/transport";
 import { asErrorMessage } from "../shared/utils";
 import { ext, runtimeSendMessage } from "../shared/webext";
+import { createLogoutGestureGate } from "./logout-gesture";
 import { handleBridgeRequest } from "./request-handler";
 import { abortBridgeXhr, startBridgeXhr } from "./xhr-bridge";
 
@@ -84,6 +85,15 @@ function bootstrapExtensionBridge(): void {
     injectPageModule("content.module.js");
   }
 
+  const logoutGesture = createLogoutGestureGate();
+  document.addEventListener(
+    "click",
+    (event) => {
+      logoutGesture.observeClick(event);
+    },
+    true,
+  );
+
   globalThis.addEventListener("message", async (event) => {
     if (!isSameWindowBridgeEvent(event)) return;
     const data = event.data as BridgeWireMessage;
@@ -94,7 +104,13 @@ function bootstrapExtensionBridge(): void {
         const id = String(data.id ?? "");
         const action = String(data.action ?? "");
         const payload = data.payload ?? {};
-        const result = await handleBridgeRequest(action, payload);
+        const isAccountDelete =
+          action === "gm_deleteValue" && payload.key === "account";
+        const trustedAccountDelete =
+          isAccountDelete && logoutGesture.consumeAccountDelete();
+        const result = await handleBridgeRequest(action, payload, {
+          trustedAccountDelete,
+        });
         sendResponse(id, true, result);
         return;
       }

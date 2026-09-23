@@ -80,6 +80,7 @@ export default class AccountButton extends UIComponentWithEvents<{
 
     const buttons = UI.createEl("vot-block", ["vot-account-buttons"]);
     const actionButton = UI.createOutlinedButton(this.buttonText);
+    actionButton.dataset.votAccountLogout = String(this._loggedIn);
     actionButton.addEventListener("click", () => {
       this.dispatch("click");
     });
@@ -127,6 +128,7 @@ export default class AccountButton extends UIComponentWithEvents<{
     this._loggedIn = isLoggedIn;
     this.accountWrapper.hidden = !this._loggedIn;
     this.actionButton.textContent = this.buttonText;
+    this.actionButton.dataset.votAccountLogout = String(this._loggedIn);
     this.tokenButton.hidden = this._loggedIn;
   }
 

@@ -12,6 +12,7 @@ async function sendBridgeRuntimeMessage<T = unknown>(
 async function requestStorage(
   action: string,
   payload: AnyObject,
+  trustedAccountDelete: boolean,
 ): Promise<unknown> {
   const response = await sendBridgeRuntimeMessage<{
     ok?: boolean;
@@ -21,6 +22,7 @@ async function requestStorage(
     type: GM_STORAGE_MESSAGE_TYPE,
     action,
     payload,
+    trustedAccountDelete,
   });
 
   if (!response?.ok) {
@@ -33,6 +35,7 @@ async function requestStorage(
 export async function handleBridgeRequest(
   action: string,
   payload: AnyObject,
+  options: { trustedAccountDelete?: boolean } = {},
 ): Promise<unknown> {
   switch (action) {
     case "handshake": {
@@ -45,7 +48,13 @@ export async function handleBridgeRequest(
     case "gm_deleteValue":
     case "gm_listValues":
     case "gm_getValues":
-      return await requestStorage(action, payload);
+      return await requestStorage(
+        action,
+        payload,
+        options.trustedAccountDelete === true &&
+          action === "gm_deleteValue" &&
+          payload.key === "account",
+      );
     default:
       throw new Error(`Unknown bridge action: ${action}`);
   }

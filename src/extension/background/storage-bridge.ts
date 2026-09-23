@@ -26,6 +26,7 @@ type GmStorageMessage = {
   type: string;
   action?: string;
   payload?: Record<string, unknown>;
+  trustedAccountDelete?: boolean;
 };
 
 function isGmStorageMessage(msg: unknown): msg is GmStorageMessage {
@@ -51,6 +52,7 @@ export async function handleStorageRequest(
   payload: Record<string, unknown> | undefined,
   senderUrl?: string,
   operations: StorageOperations = storage,
+  trustedAccountDelete = false,
 ): Promise<unknown> {
   switch (action) {
     case "gm_getValue": {
@@ -77,6 +79,16 @@ export async function handleStorageRequest(
 
     case "gm_deleteValue": {
       const key = normalizeStorageRequestKey(payload?.key);
+      if (key === "account" && !trustedAccountDelete) {
+        const current = (await operations.get("account")).account;
+        const expires =
+          current && typeof current === "object"
+            ? (current as { expires?: unknown }).expires
+            : undefined;
+        if (typeof expires === "number" && expires > Date.now()) {
+          throw new Error("Account sign-out requires a user action");
+        }
+      }
       await operations.remove(key);
       return true;
     }
@@ -128,6 +140,8 @@ export function registerBackgroundStorageBridge(): void {
             String(msg.action ?? ""),
             msg.payload,
             sender?.url,
+            storage,
+            msg.trustedAccountDelete === true,
           );
           sendBridgeResponse(sendResponse, { ok: true, result });
         } catch (error) {

@@ -113,9 +113,33 @@ describe("native storage bridge credential boundary", () => {
       token: PUBLIC_ACCOUNT_TOKEN,
       username: "test-user",
     });
-    await request("gm_deleteValue", { key: "account" });
+    await expect(request("gm_deleteValue", { key: "account" })).rejects.toThrow(
+      "user action",
+    );
+    expect(values.account).toMatchObject({ token: "NEW_TEST_TOKEN" });
+    await handleStorageRequest(
+      "gm_deleteValue",
+      { key: "account" },
+      "https://www.youtube.com/watch?v=test",
+      {
+        get: async (keys) =>
+          keys === "account" ? { account: values.account } : {},
+        set: async () => {},
+        remove: async (key) => {
+          delete values[String(key)];
+        },
+      },
+      true,
+    );
     expect(await request("gm_getValue", { key: "account", def: {} })).toEqual(
       {},
     );
+  });
+
+  test("allows background cleanup of an expired account without a click", async () => {
+    const { request, values } = fixture();
+    values.account = { token: "EXPIRED_TEST_TOKEN", expires: Date.now() - 1 };
+    await request("gm_deleteValue", { key: "account" });
+    expect(values.account).toBeUndefined();
   });
 });
