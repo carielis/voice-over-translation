@@ -12,6 +12,7 @@ const DNR_RULE_ID_YOUTUBEI_ORIGIN = 9002;
 const DNR_RULE_ID_GOOGLEVIDEO_HEADERS = 9003;
 const dnrAppliedSignatures = new Map<number, string>();
 let dnrRuleUpdateQueue: Promise<void> = Promise.resolve();
+let dnrRequestQueue: Promise<void> = Promise.resolve();
 
 type DnrRequestHeaderRemove = { header: string; operation: "remove" };
 type DnrRequestHeaderSet = { header: string; operation: "set"; value: string };
@@ -28,6 +29,54 @@ const GOOGLEVIDEO_BASE_HEADERS: DnrRequestHeader[] = [
 
 function hasDnr(): boolean {
   return Boolean(ext?.declarativeNetRequest?.updateSessionRules);
+}
+
+export function getExtensionDnrRequestScope(extensionUrl: string): {
+  tabIds: number[];
+  initiatorDomains: string[];
+} {
+  const url = new URL(extensionUrl);
+  if (!url.hostname || !["chrome-extension:", "moz-extension:"].includes(url.protocol)) {
+    throw new Error("Missing extension origin for DNR rule");
+  }
+  // Background service worker fetches have no tab. The initiator additionally
+  // excludes unrelated tabless requests from other extensions.
+  return { tabIds: [-1], initiatorDomains: [url.hostname] };
+}
+
+function currentRequestScope() {
+  return getExtensionDnrRequestScope(ext?.runtime?.getURL?.("") ?? "");
+}
+
+/** Keep mutable header rules stable until fetch has dispatched and received headers. */
+export async function withDnrRequestLock<T>(
+  url: string,
+  run: () => Promise<T>,
+): Promise<T> {
+  let hostname = "";
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    return await run();
+  }
+  if (
+    !isYandexApiHostname(hostname) &&
+    !isYoutubeMobileUrl(url) &&
+    !isGooglevideoUrl(url)
+  ) {
+    return await run();
+  }
+  const previous = dnrRequestQueue;
+  let release!: () => void;
+  dnrRequestQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await previous;
+    return await run();
+  } finally {
+    release();
+  }
 }
 
 async function updateSessionRules(args: {
@@ -133,6 +182,7 @@ export async function ensureDnrHeaderRuleForYandex(
     condition: {
       urlFilter: "|https://api.browser.yandex.ru/",
       resourceTypes: ["xmlhttprequest"],
+      ...currentRequestScope(),
     },
   };
 
@@ -175,7 +225,11 @@ async function ensureDnrHeaderStripRule(
     id: ruleId,
     priority: 1,
     action: { type: "modifyHeaders", requestHeaders },
-    condition: { urlFilter, resourceTypes: ["xmlhttprequest"] },
+    condition: {
+      urlFilter,
+      resourceTypes: ["xmlhttprequest"],
+      ...currentRequestScope(),
+    },
   };
 
   debug.log("[VOT EXT][background][dnr] applying rule", {
@@ -246,50 +300,27 @@ export async function ensureDnrStripRuleForGooglevideo(
 
 export async function preseedDnrRules(): Promise<void> {
   if (!hasDnr()) return;
-
+  const previous = dnrRuleUpdateQueue;
+  let release!: () => void;
+  dnrRuleUpdateQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   try {
+    await previous;
+    // Remove broad session rules left by an earlier extension version. New
+    // scoped rules are installed only for requests that actually need them.
     await updateSessionRules({
       removeRuleIds: [
+        DNR_RULE_ID_YANDEX_HEADERS,
         DNR_RULE_ID_YOUTUBEI_ORIGIN,
         DNR_RULE_ID_GOOGLEVIDEO_HEADERS,
       ],
-      addRules: [
-        {
-          id: DNR_RULE_ID_YOUTUBEI_ORIGIN,
-          priority: 1,
-          action: {
-            type: "modifyHeaders",
-            requestHeaders: YOUTUBEI_BASE_HEADERS,
-          },
-          condition: {
-            urlFilter: "||m.youtube.com/",
-            resourceTypes: ["xmlhttprequest"],
-          },
-        },
-        {
-          id: DNR_RULE_ID_GOOGLEVIDEO_HEADERS,
-          priority: 1,
-          action: {
-            type: "modifyHeaders",
-            requestHeaders: GOOGLEVIDEO_BASE_HEADERS,
-          },
-          condition: {
-            urlFilter: "||googlevideo.com/",
-            resourceTypes: ["xmlhttprequest"],
-          },
-        },
-      ],
     });
-    dnrAppliedSignatures.set(
-      DNR_RULE_ID_YOUTUBEI_ORIGIN,
-      signatureFromDnrRequestHeaders(YOUTUBEI_BASE_HEADERS),
-    );
-    dnrAppliedSignatures.set(
-      DNR_RULE_ID_GOOGLEVIDEO_HEADERS,
-      signatureFromDnrRequestHeaders(GOOGLEVIDEO_BASE_HEADERS),
-    );
-    debug.log("[VOT EXT][background] DNR rules pre-seeded");
+    dnrAppliedSignatures.clear();
+    debug.log("[VOT EXT][background] stale DNR rules removed");
   } catch (e) {
-    debug.warn("[VOT EXT][background] Failed to pre-seed DNR rules:", e);
+    debug.warn("[VOT EXT][background] Failed to remove stale DNR rules:", e);
+  } finally {
+    release();
   }
 }
