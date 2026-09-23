@@ -95,7 +95,6 @@ export function request<T = unknown>(
     debug.log("[VOT EXT][prelude] GM API request", {
       requestId: id,
       action,
-      payload,
     });
     pending.set(id, {
       action,
@@ -202,7 +201,7 @@ function toSerializableXhrDetails(details: AnyObject): AnyObject {
   return {
     method: details.method,
     url: details.url,
-    headers: details.headers,
+    headerNames: Object.keys(asRecord(details.headers)),
     data: summarizeBodyForDebug(details.data),
     timeout: details.timeout,
     responseType: details.responseType,

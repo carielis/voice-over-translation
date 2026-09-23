@@ -1,8 +1,9 @@
 type DebugMethod = (...text: unknown[]) => void;
 
 const noop: DebugMethod = () => {};
+const debugEnabled = typeof DEBUG_MODE !== "undefined" && DEBUG_MODE;
 
-const log: DebugMethod = !DEBUG_MODE
+const log: DebugMethod = debugEnabled
   ? (...text: unknown[]) => {
       console.log(
         "%c[VOT DEBUG]",
@@ -12,7 +13,7 @@ const log: DebugMethod = !DEBUG_MODE
     }
   : noop;
 
-const warn: DebugMethod = !DEBUG_MODE
+const warn: DebugMethod = debugEnabled
   ? (...text: unknown[]) => {
       console.warn(
         "%c[VOT DEBUG]",
@@ -22,7 +23,7 @@ const warn: DebugMethod = !DEBUG_MODE
     }
   : noop;
 
-const error: DebugMethod = !DEBUG_MODE
+const error: DebugMethod = debugEnabled
   ? (...text: unknown[]) => {
       console.error(
         "%c[VOT DEBUG]",
