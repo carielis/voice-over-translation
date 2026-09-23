@@ -7,7 +7,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ilyhalight/voice-over-translation.git"
+    "url": "git+https://github.com/carielis/voice-over-translation.git"
   },
   "keywords": [
     "cli",
